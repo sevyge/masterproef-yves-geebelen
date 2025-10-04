@@ -16,7 +16,10 @@ WHISPER_DEPLOYMENT = os.getenv("WHISPER_DEPLOYMENT", "")
 TTS_DEPLOYMENT = os.getenv("TTS_DEPLOYMENT", "")
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "")
 
-app = FastAPI()
+app = FastAPI(
+    description="Masterproef Yves Geebeken - Backend API"
+)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[ALLOWED_ORIGINS],
@@ -29,6 +32,11 @@ client = AzureOpenAI(
     api_version=AZURE_OPENAI_API_VERSION,
     azure_endpoint=AZURE_OPENAI_ENDPOINT,
 )
+
+
+@app.get("/")
+async def root():
+    return {"message": "Success"}
 
 
 @app.post("/transcribe")
