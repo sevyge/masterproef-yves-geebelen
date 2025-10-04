@@ -17,7 +17,9 @@ TTS_DEPLOYMENT = os.getenv("TTS_DEPLOYMENT", "")
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "")
 
 app = FastAPI(
-    description="Masterproef Yves Geebeken - Backend API"
+    description="Masterproef Yves Geebelen - Backend API",
+    docs_url=None,
+    redoc_url=None,
 )
 
 app.add_middleware(
