@@ -19,7 +19,7 @@ async function toggleRecording() {
             try {
                 const formData = new FormData();
                 formData.append('audio', new Blob(audioChunks));
-                const response = await fetch('http://localhost:8000/transcribe', {
+                const response = await fetch('https://backend-masterproef.onrender.com/transcribe', {
                     method: 'POST',
                     body: formData
                 });
@@ -28,7 +28,7 @@ async function toggleRecording() {
                 
                 if (result.transcription) {
                     const encodedText = encodeURIComponent(result.transcription);
-                    ttsAudio.src = `http://localhost:8000/tts-stream/${encodedText}`;
+                    ttsAudio.src = `https://backend-masterproef.onrender.com/tts-stream/${encodedText}`;
                     ttsAudio.play();
                 }
             } catch (error) {
