@@ -14,7 +14,7 @@ AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT", "")
 AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION")
 WHISPER_DEPLOYMENT = os.getenv("WHISPER_DEPLOYMENT", "")
 TTS_DEPLOYMENT = os.getenv("TTS_DEPLOYMENT", "")
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "")
+ALLOWED_ORIGINS = [os.getenv("ALLOWED_ORIGINS_LOCAL", ""), os.getenv("ALLOWED_ORIGINS_HOSTED", "")]
 
 app = FastAPI(
     description="Masterproef Yves Geebelen - Backend API",
@@ -24,7 +24,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[ALLOWED_ORIGINS],
+    allow_origins=ALLOWED_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
