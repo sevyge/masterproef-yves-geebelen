@@ -1,9 +1,10 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from openai import AzureOpenAI
 import tempfile
 import time
+import json
 import os
 from dotenv import load_dotenv
 
@@ -13,8 +14,13 @@ AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
 AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT", "")
 AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION")
 WHISPER_DEPLOYMENT = os.getenv("WHISPER_DEPLOYMENT", "")
+CHAT_DEPLOYMENT = os.getenv("CHAT_DEPLOYMENT", "")
 TTS_DEPLOYMENT = os.getenv("TTS_DEPLOYMENT", "")
-ALLOWED_ORIGINS = [os.getenv("ALLOWED_ORIGINS_LOCAL", ""), os.getenv("ALLOWED_ORIGINS_HOSTED", "")]
+
+ALLOWED_ORIGINS = [
+    os.getenv("ALLOWED_ORIGINS_LOCAL", ""),
+    os.getenv("ALLOWED_ORIGINS_HOSTED", ""),
+]
 
 app = FastAPI(
     description="Masterproef Yves Geebelen - Backend API",
@@ -30,9 +36,9 @@ app.add_middleware(
 )
 
 client = AzureOpenAI(
+    azure_endpoint=AZURE_OPENAI_ENDPOINT,
     api_key=AZURE_OPENAI_API_KEY,
     api_version=AZURE_OPENAI_API_VERSION,
-    azure_endpoint=AZURE_OPENAI_ENDPOINT,
 )
 
 
@@ -63,6 +69,22 @@ async def transcribe(audio: UploadFile = File(...)):
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
         raise e
+
+
+@app.post("/chat")
+async def chat(prompt: str = Form(...)):
+    response = client.responses.create(
+        model=CHAT_DEPLOYMENT,
+        instructions="Geef altijd een kort antwoord van maximaal 2 zinnen.",
+        tools=[
+            {"type": "file_search", "vector_store_ids": ["vs_Nby42pG9UlWm64WxQmIPBHtW"]}
+        ],
+        input=prompt,
+    )
+    response_json = json.loads(response.model_dump_json())
+    text_content = response_json["output"][1]["content"][0]["text"]
+
+    return {"response": text_content}
 
 
 @app.get("/tts-stream/{text}")
