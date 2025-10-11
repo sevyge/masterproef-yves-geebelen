@@ -15,21 +15,32 @@ async function toggleRecording() {
             stream.getTracks().forEach(track => track.stop());
             recordButton.textContent = 'Record';
             isRecording = false;
-            
+
             try {
                 const formData = new FormData();
                 formData.append('audio', new Blob(audioChunks));
-                const response = await fetch('https://backend-masterproef.onrender.com/transcribe', {
+                const response = await fetch('http://localhost:8000/transcribe', {
                     method: 'POST',
                     body: formData
                 });
                 const result = await response.json();
-                transcription.textContent = result.transcription;
-                
+                transcription.textContent = "Prompt: " + result.transcription;
+
                 if (result.transcription) {
-                    const encodedText = encodeURIComponent(result.transcription);
-                    ttsAudio.src = `https://backend-masterproef.onrender.com/tts-stream/${encodedText}`;
-                    ttsAudio.play();
+                    const formDataChat = new FormData();
+                    formDataChat.append('prompt', result.transcription);
+                    const chatResponse = await fetch('http://localhost:8000/chat', {
+                        method: 'POST',
+                        body: formDataChat
+                    });
+                    const chatResult = await chatResponse.json();
+                    transcription.textContent += '\nChat model response: ' + chatResult.response;
+
+                    if (chatResult.response) {
+                        const encodedText = encodeURIComponent(chatResult.response);
+                        ttsAudio.src = `http://localhost:8000/tts-stream/${encodedText}`;
+                        ttsAudio.play();
+                    }
                 }
             } catch (error) {
                 transcription.textContent = 'Error: Server not responding';
