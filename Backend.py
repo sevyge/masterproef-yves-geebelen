@@ -75,14 +75,18 @@ async def transcribe(audio: UploadFile = File(...)):
 async def chat(prompt: str = Form(...)):
     response = client.responses.create(
         model=CHAT_DEPLOYMENT,
-        instructions="Geef altijd een kort antwoord van maximaal 2 zinnen.",
+        instructions="Geef altijd een kort antwoord in het Nederlands van maximaal 2 zinnen.",
         tools=[
             {"type": "file_search", "vector_store_ids": ["vs_Nby42pG9UlWm64WxQmIPBHtW"]}
         ],
         input=prompt,
     )
+    
     response_json = json.loads(response.model_dump_json())
-    text_content = response_json["output"][1]["content"][0]["text"]
+    try:
+        text_content = response_json["output"][1]["content"][0]["text"]
+    except (KeyError, IndexError):
+        text_content = response_json["output"][0]["content"][0]["text"]
 
     return {"response": text_content}
 
