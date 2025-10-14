@@ -19,7 +19,7 @@ async function toggleRecording() {
             if (window.recordButton) {
                 window.recordButton.textContent = 'Klik om te praten';
             }
-            
+
             try {
                 const formData = new FormData();
                 formData.append('audio', new Blob(audioChunks));
@@ -33,6 +33,9 @@ async function toggleRecording() {
                 if (result.transcription) {
                     const formDataChat = new FormData();
                     formDataChat.append('prompt', result.transcription);
+                    if (window.screenshotBase64) {
+                        formDataChat.append('screenshot', window.screenshotBase64);
+                    }
                     if (lastChatResult && lastChatResult.response_id) {
                         formDataChat.append('previous_response_id', lastChatResult.response_id);
                     }
