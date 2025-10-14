@@ -72,15 +72,30 @@ async def transcribe(audio: UploadFile = File(...)):
 
 
 @app.post("/chat")
-async def chat(prompt: str = Form(...), previous_response_id: str = Form(None)):
+async def chat(
+    prompt: str = Form(...),
+    screenshot: str = Form(None),
+    previous_response_id: str = Form(None),
+):
     response = client.responses.create(
         model=CHAT_DEPLOYMENT,
         instructions="Geef altijd een kort antwoord in het Nederlands van maximaal 2 zinnen.",
         tools=[
             {"type": "file_search", "vector_store_ids": ["vs_Nby42pG9UlWm64WxQmIPBHtW"]}
         ],
-        input=prompt,
-        previous_response_id=previous_response_id
+        input=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "input_text", "text": prompt},
+                    {
+                        "type": "input_image",
+                        "image_url": screenshot,
+                    },
+                ],
+            }  # type: ignore
+        ],
+        previous_response_id=previous_response_id,
     )
 
     response_json = json.loads(response.model_dump_json())
@@ -89,8 +104,7 @@ async def chat(prompt: str = Form(...), previous_response_id: str = Form(None)):
     except (KeyError, IndexError):
         text_content = response_json["output"][0]["content"][0]["text"]
 
-    return {"response": text_content,
-            "response_id": response_json["id"]}
+    return {"response": text_content, "response_id": response_json["id"]}
 
 
 @app.get("/tts-stream/{text}")
