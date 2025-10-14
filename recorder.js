@@ -1,4 +1,5 @@
 let mediaRecorder, audioChunks = [], stream, isRecording = false;
+let lastChatResult = null;
 const recordButton = document.getElementById('recordButton');
 const transcription = document.getElementById('transcription');
 const ttsAudio = document.getElementById('ttsAudio');
@@ -6,6 +7,8 @@ const ttsAudio = document.getElementById('ttsAudio');
 recordButton.onclick = toggleRecording;
 
 async function toggleRecording() {
+    ttsAudio.pause();
+    ttsAudio.currentTime = 0;
     if (!isRecording) {
         stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         mediaRecorder = new MediaRecorder(stream);
@@ -29,11 +32,15 @@ async function toggleRecording() {
                 if (result.transcription) {
                     const formDataChat = new FormData();
                     formDataChat.append('prompt', result.transcription);
+                    if (lastChatResult && lastChatResult.response_id) {
+                        formDataChat.append('previous_response_id', lastChatResult.response_id);
+                    }
                     const chatResponse = await fetch('http://localhost:8000/chat', {
                         method: 'POST',
                         body: formDataChat
                     });
                     const chatResult = await chatResponse.json();
+                    lastChatResult = chatResult;
                     transcription.textContent += '\nChat model response: ' + chatResult.response;
 
                     if (chatResult.response) {
