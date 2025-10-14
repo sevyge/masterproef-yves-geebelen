@@ -1,6 +1,6 @@
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 from openai import AzureOpenAI
 import tempfile
 import time
@@ -81,7 +81,7 @@ async def chat(prompt: str = Form(...)):
         ],
         input=prompt,
     )
-    
+
     response_json = json.loads(response.model_dump_json())
     try:
         text_content = response_json["output"][1]["content"][0]["text"]
@@ -96,15 +96,14 @@ async def tts_stream(text: str):
     try:
         print(f"TTS streaming started at {time.strftime('%Y-%m-%d %H:%M:%S')}")
         response = client.audio.speech.create(
-            model=TTS_DEPLOYMENT, voice="nova", input=text, response_format="mp3"
+            model=TTS_DEPLOYMENT, voice="nova", input=text, response_format="wav"
         )
         print(f"TTS streaming finished at {time.strftime('%Y-%m-%d %H:%M:%S')}")
-        return Response(
-            content=response.content,
-            media_type="audio/mpeg",
+        return StreamingResponse(
+            response.iter_bytes(),
+            media_type="audio/wav",
             headers={
                 "Accept-Ranges": "bytes",
-                "Content-Length": str(len(response.content)),
             },
         )
     except Exception as e:
