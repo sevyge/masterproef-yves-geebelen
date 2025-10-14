@@ -1,10 +1,9 @@
+'use strict';
+
 let mediaRecorder, audioChunks = [], stream, isRecording = false;
 let lastChatResult = null;
-const recordButton = document.getElementById('recordButton');
 const transcription = document.getElementById('transcription');
 const ttsAudio = document.getElementById('ttsAudio');
-
-recordButton.onclick = toggleRecording;
 
 async function toggleRecording() {
     ttsAudio.pause();
@@ -16,9 +15,11 @@ async function toggleRecording() {
         mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
         mediaRecorder.onstop = async () => {
             stream.getTracks().forEach(track => track.stop());
-            recordButton.textContent = 'Record';
             isRecording = false;
-
+            if (window.recordButton) {
+                window.recordButton.textContent = 'Klik om te praten';
+            }
+            
             try {
                 const formData = new FormData();
                 formData.append('audio', new Blob(audioChunks));
@@ -50,13 +51,17 @@ async function toggleRecording() {
                     }
                 }
             } catch (error) {
-                transcription.textContent = 'Error: Server not responding';
+                transcription.textContent = 'Error: Server reageert niet.';
             }
         };
         mediaRecorder.start();
-        recordButton.textContent = 'Stop';
         isRecording = true;
+        if (window.recordButton) {
+            window.recordButton.textContent = 'Stop';
+        }
     } else {
         mediaRecorder.stop();
     }
 }
+
+window.toggleRecording = toggleRecording;
