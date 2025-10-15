@@ -18,7 +18,8 @@ pipButton.addEventListener('click', async () => {
   if ('documentPictureInPicture' in window) {
     const pipWindow = await window.documentPictureInPicture.requestWindow({
       width: 300,
-      height: 100
+      height: 100,
+      disallowReturnToOpener: true
     });
 
     pipButton.disabled = true;
