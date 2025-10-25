@@ -4,6 +4,7 @@ let mediaRecorder, audioChunks = [], stream, isRecording = false;
 let lastChatResult = null;
 const transcription = document.getElementById('transcription');
 const ttsAudio = document.getElementById('ttsAudio');
+const backendBaseUrl = backendUrl();
 
 async function toggleRecording() {
     ttsAudio.pause();
@@ -23,7 +24,7 @@ async function toggleRecording() {
             try {
                 const formData = new FormData();
                 formData.append('audio', new Blob(audioChunks));
-                const response = await fetch('http://localhost:8000/transcribe', {
+                const response = await fetch(`${backendBaseUrl}/transcribe`, {
                     method: 'POST',
                     body: formData
                 });
@@ -39,7 +40,7 @@ async function toggleRecording() {
                     if (lastChatResult && lastChatResult.response_id) {
                         formDataChat.append('previous_response_id', lastChatResult.response_id);
                     }
-                    const chatResponse = await fetch('http://localhost:8000/chat', {
+                    const chatResponse = await fetch(`${backendBaseUrl}/chat`, {
                         method: 'POST',
                         body: formDataChat
                     });
@@ -50,7 +51,7 @@ async function toggleRecording() {
                     if (chatResult.response) {
                         const formDataTTS = new FormData();
                         formDataTTS.append('text', chatResult.response);
-                        const ttsResponse = await fetch('http://localhost:8000/tts-stream', {
+                        const ttsResponse = await fetch(`${backendBaseUrl}/tts-stream`, {
                             method: 'POST',
                             body: formDataTTS
                         });
