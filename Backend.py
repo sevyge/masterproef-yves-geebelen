@@ -77,6 +77,7 @@ async def chat(
     screenshot: str = Form(None),
     previous_response_id: str = Form(None),
 ):
+    print(f"{prompt}")
     response = client.responses.create(
         model=CHAT_DEPLOYMENT,
         instructions="Geef altijd een kort antwoord in het Nederlands van maximaal 2 zinnen.",
@@ -107,8 +108,8 @@ async def chat(
     return {"response": text_content, "response_id": response_json["id"]}
 
 
-@app.get("/tts-stream/{text}")
-async def tts_stream(text: str):
+@app.post("/tts-stream")
+async def tts_stream(text: str = Form(...)):
     try:
         print(f"TTS streaming started at {time.strftime('%Y-%m-%d %H:%M:%S')}")
         response = client.audio.speech.create(
