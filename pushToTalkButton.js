@@ -68,8 +68,8 @@ function takeScreenshot(video) {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
 
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
+  canvas.width = video.videoWidth/2;
+  canvas.height = video.videoHeight/2;
 
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
   screenshotBase64 = canvas.toDataURL('image/png');

@@ -48,8 +48,15 @@ async function toggleRecording() {
                     transcription.textContent += '\nChat model response: ' + chatResult.response;
 
                     if (chatResult.response) {
-                        const encodedText = encodeURIComponent(chatResult.response);
-                        ttsAudio.src = `http://localhost:8000/tts-stream/${encodedText}`;
+                        const formDataTTS = new FormData();
+                        formDataTTS.append('text', chatResult.response);
+                        const ttsResponse = await fetch('http://localhost:8000/tts-stream', {
+                            method: 'POST',
+                            body: formDataTTS
+                        });
+                        const ttsBlob = await ttsResponse.blob();
+                        const ttsObjectUrl = URL.createObjectURL(ttsBlob);
+                        ttsAudio.src = ttsObjectUrl;
                         ttsAudio.play();
                     }
                 }
