@@ -1,7 +1,11 @@
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, StreamingResponse
+from typing import Any, Dict
 from openai import AzureOpenAI
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
 import tempfile
 import time
 import json
@@ -45,6 +49,47 @@ client = AzureOpenAI(
 @app.get("/")
 async def root():
     return {"message": "Success"}
+
+
+@app.post("/upload-video")
+async def upload_video(video: UploadFile = File(...)):
+    # input validation
+    if video.content_type not in ["video/webm", "video/mp4"]:
+        return {"error": "Invalid file type. Only .webm and .mp4 are allowed."}
+
+    # Google Drive API setup
+    SCOPES = ["https://www.googleapis.com/auth/drive"]
+    SERVICE_ACCOUNT_FILE = "service_account.json"
+
+    # Check if service account file exists
+    if not os.path.exists(SERVICE_ACCOUNT_FILE):
+        return {"error": "Service account file not found. Please add service_account.json to the backend directory."}
+
+    try:
+        creds = service_account.Credentials.from_service_account_file(
+            SERVICE_ACCOUNT_FILE, scopes=SCOPES
+        )
+        service = build("drive", "v3", credentials=creds)
+
+        timestamp = time.strftime("%Y%m%d-%H%M%S")
+        file_metadata: Dict[str, Any] = {"name": f"recording-{timestamp}.webm"}
+
+        folder_id = os.getenv("GOOGLE_DRIVE_FOLDER_ID")
+        if folder_id:
+            file_metadata["parents"] = [folder_id]
+
+        media = MediaIoBaseUpload(video.file, mimetype="video/webm", resumable=True)
+
+        file = (
+            service.files()
+            .create(body=file_metadata, media_body=media, fields="id, webViewLink", supportsAllDrives=True)
+            .execute()
+        )
+
+        return {"message": "Video uploaded to Google Drive successfully", "file_id": file.get("id"), "link": file.get("webViewLink")}
+    except Exception as e:
+        print(f"Error uploading video: {e}")
+        return {"error": str(e)}
 
 
 @app.post("/transcribe")
