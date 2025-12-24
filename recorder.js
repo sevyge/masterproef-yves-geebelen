@@ -1,6 +1,7 @@
 'use strict';
 
 let mediaRecorder, audioChunks = [], stream, isRecording = false;
+let screenRecorder, screenChunks = [];
 let lastChatResult = null;
 const transcription = document.getElementById('transcription');
 const ttsAudio = document.getElementById('ttsAudio');
@@ -11,6 +12,35 @@ async function toggleRecording() {
     ttsAudio.currentTime = 0;
     if (!isRecording) {
         stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+        if (window.videoStream) {
+            const screenStream = new MediaStream([
+                ...window.videoStream.getVideoTracks(),
+                ...stream.getAudioTracks()
+            ]);
+            screenRecorder = new MediaRecorder(screenStream);
+            screenChunks = [];
+            screenRecorder.ondataavailable = e => {
+                if (e.data.size > 0) screenChunks.push(e.data);
+            };
+            screenRecorder.onstop = async () => {
+                const blob = new Blob(screenChunks, { type: 'video/webm' });
+                try {
+                    const formData = new FormData();
+                    formData.append('video', blob, `screen-recording-${new Date().toISOString().replace(/[:.]/g, '-')}.webm`);
+                    
+                    await fetch(`${backendBaseUrl}/upload-video`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    console.log('Video uploaded successfully');
+                } catch (error) {
+                    console.error('Error uploading video:', error);
+                }
+            };
+            screenRecorder.start();
+        }
+
         mediaRecorder = new MediaRecorder(stream);
         audioChunks = [];
         mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
@@ -72,6 +102,9 @@ async function toggleRecording() {
         }
     } else {
         mediaRecorder.stop();
+        if (screenRecorder && screenRecorder.state !== 'inactive') {
+            screenRecorder.stop();
+        }
     }
 }
 

@@ -7,6 +7,7 @@ let video = null;
 pipButton.addEventListener('click', async () => {
   try {
     const videoStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+    window.videoStream = videoStream;
     video = document.createElement('video');
     video.srcObject = videoStream;
     video.play();
