@@ -2,6 +2,7 @@ from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, StreamingResponse
 from typing import Any
+from pydantic import BaseModel
 from openai import AzureOpenAI
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -68,11 +69,18 @@ async def consent(request: ConsentRequest):
 
 # Upload video endpoint
 @app.post("/upload-video")
-async def upload_video(video: UploadFile = File(...)):
+async def upload_video(video: UploadFile = File(...),
+                       participant_id: str = Form(None)):
     # input validation
     if video.content_type not in ["video/webm", "video/mp4"]:
         return {"error": "Invalid file type. Only .webm and .mp4 are allowed."}
 
+    # Log upload
+    if participant_id:
+        logging.info(f"Received video upload from participant: {participant_id}")
+    else:
+        logging.info("Received video upload from unknown participant")
+    
     # Google Drive API setup
     SCOPES = ["https://www.googleapis.com/auth/drive"]
     SERVICE_ACCOUNT_FILE = "service_account.json"
@@ -88,7 +96,9 @@ async def upload_video(video: UploadFile = File(...)):
         service = build("drive", "v3", credentials=creds)
 
         timestamp = time.strftime("%Y%m%d-%H%M%S")
-        file_metadata: dict[str, Any] = {"name": f"recording-{timestamp}.webm"}
+        # Include participant ID in filename if available
+        participant_id_prefix = f"{participant_id}-" if participant_id else ""
+        file_metadata: dict[str, Any] = {"name": f"{participant_id_prefix}recording-{timestamp}.webm"}
 
         folder_id = os.getenv("GOOGLE_DRIVE_FOLDER_ID")
         if folder_id:
@@ -104,7 +114,7 @@ async def upload_video(video: UploadFile = File(...)):
 
         return {"message": "Video uploaded to Google Drive successfully", "file_id": file.get("id"), "link": file.get("webViewLink")}
     except Exception as e:
-        print(f"Error uploading video: {e}")
+        logging.error(f"Error uploading video: {e}")
         return {"error": str(e)}
 
 
@@ -115,7 +125,7 @@ async def transcribe(audio: UploadFile = File(...)):
         temp_file_path = temp_file.name
 
     try:
-        print(
+        logging.info(
             f"Speech to text processing started at {time.strftime('%Y-%m-%d %H:%M:%S')}"
         )
         with open(temp_file_path, "rb") as f:
@@ -124,11 +134,12 @@ async def transcribe(audio: UploadFile = File(...)):
             )
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
-        print(f"Transcription finished at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+        logging.info(f"Transcription finished at {time.strftime('%Y-%m-%d %H:%M:%S')}")
         return {"transcription": result.text}
     except Exception as e:
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
+        logging.error(f"Error during transcription: {e}")
         raise e
 
 
@@ -138,7 +149,7 @@ async def chat(
     screenshot: str = Form(None),
     previous_response_id: str = Form(None),
 ):
-    print(f"{prompt}")
+    logging.info(f"Received chat prompt: {prompt}")
     response = client.responses.create(
         model=CHAT_DEPLOYMENT,
         instructions="Geef altijd een kort antwoord in het Nederlands van maximaal 2 zinnen.",
@@ -172,11 +183,11 @@ async def chat(
 @app.post("/tts-stream")
 async def tts_stream(text: str = Form(...)):
     try:
-        print(f"TTS streaming started at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+        logging.info(f"TTS streaming started at {time.strftime('%Y-%m-%d %H:%M:%S')}")
         response = client.audio.speech.create(
             model=TTS_DEPLOYMENT, voice="nova", input=text, response_format="wav"
         )
-        print(f"TTS streaming finished at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+        logging.info(f"TTS streaming finished at {time.strftime('%Y-%m-%d %H:%M:%S')}")
         return StreamingResponse(
             response.iter_bytes(),
             media_type="audio/wav",
@@ -185,7 +196,7 @@ async def tts_stream(text: str = Form(...)):
             },
         )
     except Exception as e:
-        print(f"TTS streaming error: {e}")
+        logging.error(f"TTS streaming error: {e}")
         return Response(content="", status_code=500)
 
 
