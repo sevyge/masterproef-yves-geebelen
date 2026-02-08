@@ -10,9 +10,17 @@ import tempfile
 import time
 import json
 import os
+import logging
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# Logging
+logging.basicConfig(
+    filename='app_activity.log',
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 
 AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
 AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT", "")
@@ -45,12 +53,20 @@ client = AzureOpenAI(
     api_version=AZURE_OPENAI_API_VERSION,
 )
 
+class ConsentRequest(BaseModel):
+    participant_id: str
 
 @app.get("/")
 async def root():
     return {"message": "Success"}
 
+# Informed consent endpoint
+@app.post("/consent")
+async def consent(request: ConsentRequest):
+    logging.info(f"Received consent from participant: {request.participant_id}")
+    return {"message": f"Consent received for participant {request.participant_id}"}
 
+# Upload video endpoint
 @app.post("/upload-video")
 async def upload_video(video: UploadFile = File(...)):
     # input validation
