@@ -1,7 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, StreamingResponse
-from typing import Any, Dict
+from typing import Any
 from openai import AzureOpenAI
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -72,7 +72,7 @@ async def upload_video(video: UploadFile = File(...)):
         service = build("drive", "v3", credentials=creds)
 
         timestamp = time.strftime("%Y%m%d-%H%M%S")
-        file_metadata: Dict[str, Any] = {"name": f"recording-{timestamp}.webm"}
+        file_metadata: dict[str, Any] = {"name": f"recording-{timestamp}.webm"}
 
         folder_id = os.getenv("GOOGLE_DRIVE_FOLDER_ID")
         if folder_id:
