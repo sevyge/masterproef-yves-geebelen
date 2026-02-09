@@ -2,11 +2,11 @@ from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, StreamingResponse
 from typing import Any
-from pydantic import BaseModel
 from openai import AzureOpenAI
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
+from io import BytesIO
 import tempfile
 import time
 import json
@@ -54,8 +54,69 @@ client = AzureOpenAI(
     api_version=AZURE_OPENAI_API_VERSION,
 )
 
-class ConsentRequest(BaseModel):
-    participant_id: str
+# Google Drive setup
+SCOPES = ["https://www.googleapis.com/auth/drive"]
+SERVICE_ACCOUNT_FILE = "service_account.json"
+
+if os.path.exists(SERVICE_ACCOUNT_FILE):
+    creds = service_account.Credentials.from_service_account_file(
+        SERVICE_ACCOUNT_FILE, scopes=SCOPES
+    )
+    service = build("drive", "v3", credentials=creds)
+else:
+    service = None
+
+
+def upload_to_google_drive(
+    file_stream,
+    filename: str,
+    mimetype: str,
+    folder_id: str | None = None,
+) -> dict[str, str]:
+    """Upload a file to Google Drive and return its id.
+
+    Args:
+        file_stream: A file-like (readable) object or raw bytes.
+        filename:    The name the file will have on Drive.
+        mimetype:    MIME type of the file (e.g. "video/webm", "text/markdown").
+        folder_id:   Optional Drive folder ID. Falls back to GOOGLE_DRIVE_FOLDER_ID env var.
+
+    Returns:
+        dict with key "file_id".
+
+    Raises:
+        FileNotFoundError: If the service-account JSON is missing.
+        Exception:         Any Google API error.
+    """
+    if service is None:
+        raise FileNotFoundError(
+            "Service account file not found."
+        )
+
+    # Accept raw bytes as well as file-like objects
+    if isinstance(file_stream, (bytes, bytearray)):
+        file_stream = BytesIO(file_stream)
+
+    folder = folder_id or os.getenv("GOOGLE_DRIVE_FOLDER_ID")
+    file_metadata: dict[str, Any] = {"name": filename}
+    if folder:
+        file_metadata["parents"] = [folder]
+
+    media = MediaIoBaseUpload(file_stream, mimetype=mimetype, resumable=True)
+
+    file = (
+        service.files()
+        .create(
+            body=file_metadata,
+            media_body=media,
+            fields="id",
+            supportsAllDrives=True,
+        )
+        .execute()
+    )
+
+    return {"file_id": file.get("id")}
+
 
 @app.get("/")
 async def root():
@@ -63,9 +124,9 @@ async def root():
 
 # Informed consent endpoint
 @app.post("/consent")
-async def consent(request: ConsentRequest):
-    logging.info(f"Received consent from participant: {request.participant_id}")
-    return {"message": f"Consent received for participant {request.participant_id}"}
+async def consent(participant_id: str = Form(...)):
+    logging.info(f"Received consent from participant: {participant_id}")
+    return {"message": f"Consent received for participant {participant_id}"}
 
 # Upload video endpoint
 @app.post("/upload-video")
@@ -80,39 +141,21 @@ async def upload_video(video: UploadFile = File(...),
         logging.info(f"Received video upload from participant: {participant_id}")
     else:
         logging.info("Received video upload from unknown participant")
-    
-    # Google Drive API setup
-    SCOPES = ["https://www.googleapis.com/auth/drive"]
-    SERVICE_ACCOUNT_FILE = "service_account.json"
-
-    # Check if service account file exists
-    if not os.path.exists(SERVICE_ACCOUNT_FILE):
-        return {"error": "Service account file not found. Please add service_account.json to the backend directory."}
 
     try:
-        creds = service_account.Credentials.from_service_account_file(
-            SERVICE_ACCOUNT_FILE, scopes=SCOPES
-        )
-        service = build("drive", "v3", credentials=creds)
-
         timestamp = time.strftime("%Y%m%d-%H%M%S")
-        # Include participant ID in filename if available
-        participant_id_prefix = f"{participant_id}-" if participant_id else ""
-        file_metadata: dict[str, Any] = {"name": f"{participant_id_prefix}recording-{timestamp}.webm"}
+        prefix = f"{participant_id}-" if participant_id else ""
+        filename = f"{prefix}recording-{timestamp}.webm"
 
-        folder_id = os.getenv("GOOGLE_DRIVE_FOLDER_ID")
-        if folder_id:
-            file_metadata["parents"] = [folder_id]
-
-        media = MediaIoBaseUpload(video.file, mimetype="video/webm", resumable=True)
-
-        file = (
-            service.files()
-            .create(body=file_metadata, media_body=media, fields="id, webViewLink", supportsAllDrives=True)
-            .execute()
+        result = upload_to_google_drive(
+            file_stream=video.file,
+            filename=filename,
+            mimetype="video/webm",
         )
 
-        return {"message": "Video uploaded to Google Drive successfully", "file_id": file.get("id"), "link": file.get("webViewLink")}
+        return {"message": "Video uploaded to Google Drive successfully", **result}
+    except FileNotFoundError as e:
+        return {"error": str(e)}
     except Exception as e:
         logging.error(f"Error uploading video: {e}")
         return {"error": str(e)}
