@@ -7,9 +7,9 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 from io import BytesIO
+from pydantic import BaseModel
 import tempfile
 import time
-import json
 import os
 import logging
 from dotenv import load_dotenv
@@ -51,6 +51,9 @@ client = AzureOpenAI(
     api_key=AZURE_OPENAI_API_KEY,
     api_version=AZURE_OPENAI_API_VERSION,
 )
+
+# In-memory transcript log per participant
+transcript_log: dict[str, list[str]] = {}
 
 # Google Drive setup
 SCOPES = ["https://www.googleapis.com/auth/drive"]
@@ -288,41 +291,74 @@ async def transcribe(audio: UploadFile = File(...)):
         raise e
 
 
+class ChatClassification(BaseModel):
+    label: str
+    confidence_score: float
+
+
 @app.post("/chat")
 async def chat(
-    prompt: str = Form(...),
+    transcript: str = Form(...),
     screenshot: str = Form(None),
     previous_response_id: str = Form(None),
+    participant_id: str = Form(...),
 ):
-    logging.info(f"Received chat prompt: {prompt}")
-    response = client.responses.create(
+    logging.info(f"Received chat prompt: {transcript}")
+
+    user_content: list[dict[str, str]] = [{"type": "input_text", "text": transcript}]
+    if screenshot:
+        user_content.append({"type": "input_image", "image_url": screenshot})
+
+    response = client.responses.parse(
         model=CHAT_DEPLOYMENT,
-        instructions="Geef altijd een kort antwoord in het Nederlands van maximaal 2 zinnen.",
-        tools=[
-            {"type": "file_search", "vector_store_ids": ["vs_Nby42pG9UlWm64WxQmIPBHtW"]}
-        ],
+        instructions="",
+        # tools=[
+        #     {"type": "file_search", "vector_store_ids": ["vs_Nby42pG9UlWm64WxQmIPBHtW"]}
+        # ],
         input=[
             {
                 "role": "user",
-                "content": [
-                    {"type": "input_text", "text": prompt},
-                    {
-                        "type": "input_image",
-                        "image_url": screenshot,
-                    },
-                ],
+                "content": user_content,
             }  # type: ignore
         ],
+        text_format=ChatClassification,
         previous_response_id=previous_response_id,
     )
 
-    response_json = json.loads(response.model_dump_json())
-    try:
-        text_content = response_json["output"][1]["content"][0]["text"]
-    except (KeyError, IndexError):
-        text_content = response_json["output"][0]["content"][0]["text"]
+    parsed = response.output_parsed
 
-    return {"response": text_content, "response_id": response_json["id"]}
+    if parsed is None:
+        logging.error("Model returned no parsed output (possible refusal).")
+        return {"error": "No structured output returned by the model."}
+
+    label = parsed.label
+    confidence_score = parsed.confidence_score
+
+    logging.info(f"Chat response: {label} (confidence: {confidence_score})")
+
+    # Create an empty log for this participant if it doesn't exist yet
+    if participant_id not in transcript_log:
+        transcript_log[participant_id] = []
+
+    entry_number = len(transcript_log[participant_id]) + 1
+
+    # Add the transcript with the knowledge structure classification to the log: speech (label) entry number
+    transcript_log[participant_id].append(f"{transcript} ({label} - {confidence_score}) {entry_number}")
+
+    try:
+        log_content = "\n".join(transcript_log[participant_id])
+        participant_folder = get_or_create_participant_folder(participant_id)
+        upload_to_google_drive(
+            file_stream=log_content.encode("utf-8"),
+            filename=f"transcript_met_kennisstructuur_{participant_id}.txt",
+            mimetype="text/plain",
+            folder_id=participant_folder,
+        )
+        logging.info(f"Transcript with knowledge structure updated for participant {participant_id}")
+    except Exception as e:
+        logging.error(f"Error uploading transcript log: {e}")
+
+    return {"response": label, "response_id": response.id}
 
 
 @app.post("/tts-stream")
