@@ -48,6 +48,8 @@
                 });
 
                 if (response.ok) {
+                    const data = await response.json();
+                    localStorage.setItem('participant_id', data.participant_id);
                     window.location.href = 'homepage.html';
                 } else {
                     alert('Er is een fout opgetreden. Probeer het later opnieuw.');
