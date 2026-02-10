@@ -18,9 +18,7 @@ load_dotenv()
 
 # Logging
 logging.basicConfig(
-    filename='app_activity.log',
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
 AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
@@ -67,6 +65,82 @@ else:
     service = None
 
 
+def get_or_create_participant_folder(participant_id: str) -> str:
+    """Return the Drive folder ID for a participant, creating it if needed."""
+    if service is None:
+        raise FileNotFoundError("Service account file not found.")
+
+    parent_id = os.getenv("GOOGLE_DRIVE_FOLDER_ID")
+    if not parent_id:
+        raise ValueError("GOOGLE_DRIVE_FOLDER_ID environment variable is not set.")
+
+    # Search for an existing folder with this name inside the parent
+    query = (
+        f"name = '{participant_id}' and '{parent_id}' in parents "
+        f"and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
+    )
+
+    results = (
+        service.files()
+        .list(
+            q=query,
+            fields="files(id)",
+            supportsAllDrives=True,
+            includeItemsFromAllDrives=True,
+        )
+        .execute()
+    )
+    files = results.get("files", [])
+    if files:
+        return files[0]["id"]
+
+    # Create the folder
+    folder_metadata = {
+        "name": participant_id,
+        "mimeType": "application/vnd.google-apps.folder",
+        "parents": [parent_id],
+    }
+
+    folder = (
+        service.files()
+        .create(body=folder_metadata, fields="id", supportsAllDrives=True)
+        .execute()
+    )
+    logging.info(f"Created Drive folder '{participant_id}' with ID: {folder['id']}")
+    return folder["id"]
+
+
+def get_next_participant_id() -> str:
+    """Determine the next participant ID by counting existing folders."""
+    if service is None:
+        return "1"  # Fallback if no Drive access
+
+    parent_id = os.getenv("GOOGLE_DRIVE_FOLDER_ID")
+    if not parent_id:
+        return "1"
+
+    query = (
+        f"'{parent_id}' in parents and "
+        f"mimeType = 'application/vnd.google-apps.folder' and trashed = false"
+    )
+
+    # Fetch list of folders and use count + 1 as the next participant ID
+    results = (
+        service.files()
+        .list(
+            q=query,
+            pageSize=1000,
+            fields="files(id)",
+            supportsAllDrives=True,
+            includeItemsFromAllDrives=True,
+        )
+        .execute()
+    )
+
+    folders = results.get("files", [])
+    return str(len(folders) + 1)
+
+
 def upload_to_google_drive(
     file_stream,
     filename: str,
@@ -89,9 +163,7 @@ def upload_to_google_drive(
         Exception:         Any Google API error.
     """
     if service is None:
-        raise FileNotFoundError(
-            "Service account file not found."
-        )
+        raise FileNotFoundError("Service account file not found.")
 
     # Accept raw bytes as well as file-like objects
     if isinstance(file_stream, (bytes, bytearray)):
@@ -122,35 +194,65 @@ def upload_to_google_drive(
 async def root():
     return {"message": "Success"}
 
+
 # Informed consent endpoint
 @app.post("/consent")
-async def consent(participant_id: str = Form(...)):
-    logging.info(f"Received consent from participant: {participant_id}")
-    return {"message": f"Consent received for participant {participant_id}"}
+async def consent(participant_id: str = Form(None)):
+    if not participant_id:
+        participant_id = get_next_participant_id()
+        logging.info(f"Generated new participant ID: {participant_id}")
+    else:
+        logging.info(f"Received consent from participant: {participant_id}")
+
+    try:
+        filename = f"Consent_{participant_id}_{time.strftime('%Y%m%d-%H%M%S')}.pdf"
+
+        participant_folder = get_or_create_participant_folder(participant_id)
+
+        if os.path.exists("toestemmingsformulier.pdf"):
+            with open("toestemmingsformulier.pdf", "rb") as pdf_file:
+                file_id = upload_to_google_drive(
+                    file_stream=pdf_file,
+                    filename=filename,
+                    mimetype="application/pdf",
+                    folder_id=participant_folder,
+                )
+                logging.info(
+                    f"Uploaded consent PDF to Google Drive with file ID: {file_id['file_id']}"
+                )
+        else:
+            logging.error("Consent PDF not found.")
+
+    except Exception as e:
+        logging.error(f"Error uploading consent PDF to Google Drive: {str(e)}")
+
+    return {
+        "message": f"Consent received for participant {participant_id}",
+        "participant_id": participant_id,
+    }
+
 
 # Upload video endpoint
 @app.post("/upload-video")
-async def upload_video(video: UploadFile = File(...),
-                       participant_id: str = Form(None)):
+async def upload_video(video: UploadFile = File(...), participant_id: str = Form(...)):
     # input validation
     if video.content_type not in ["video/webm", "video/mp4"]:
         return {"error": "Invalid file type. Only .webm and .mp4 are allowed."}
 
     # Log upload
-    if participant_id:
-        logging.info(f"Received video upload from participant: {participant_id}")
-    else:
-        logging.info("Received video upload from unknown participant")
+    logging.info(f"Received video upload from participant: {participant_id}")
 
     try:
         timestamp = time.strftime("%Y%m%d-%H%M%S")
-        prefix = f"{participant_id}-" if participant_id else ""
-        filename = f"{prefix}recording-{timestamp}.webm"
+        filename = f"{participant_id}-recording-{timestamp}.webm"
+
+        participant_folder = get_or_create_participant_folder(participant_id)
 
         result = upload_to_google_drive(
             file_stream=video.file,
             filename=filename,
             mimetype="video/webm",
+            folder_id=participant_folder,
         )
 
         return {"message": "Video uploaded to Google Drive successfully", **result}
