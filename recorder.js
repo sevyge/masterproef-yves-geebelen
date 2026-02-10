@@ -64,12 +64,16 @@ async function toggleRecording() {
 
                 if (result.transcription) {
                     const formDataChat = new FormData();
-                    formDataChat.append('prompt', result.transcription);
+                    formDataChat.append('transcript', result.transcription);
                     if (window.screenshotBase64) {
                         formDataChat.append('screenshot', window.screenshotBase64);
                     }
                     if (lastChatResult && lastChatResult.response_id) {
                         formDataChat.append('previous_response_id', lastChatResult.response_id);
+                    }
+                    const participantId = localStorage.getItem('participant_id');
+                    if (participantId) {
+                        formDataChat.append('participant_id', participantId);
                     }
                     const chatResponse = await fetch(`${backendBaseUrl}/chat`, {
                         method: 'POST',
