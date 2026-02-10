@@ -26,9 +26,10 @@ async function toggleRecording() {
             screenRecorder.onstop = async () => {
                 const blob = new Blob(screenChunks, { type: 'video/webm' });
                 try {
+                    const participantId = localStorage.getItem('participant_id');
                     const formData = new FormData();
                     formData.append('video', blob, `screen-recording-${new Date().toISOString().replace(/[:.]/g, '-')}.webm`);
-                    
+                    formData.append('participant_id', participantId);
                     await fetch(`${backendBaseUrl}/upload-video`, {
                         method: 'POST',
                         body: formData
