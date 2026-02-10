@@ -9,8 +9,11 @@
 </head>
 
 <body class="container py-5" style="max-width: 800px;">
-    <div class="mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
         <h2>Toestemmingsformulier</h2>
+        <span id="serverStatus"></span>
+    </div>
+    <div class="mb-4">
         <h5 class="text-muted">Onderzoek: Masterproef Yves Geebelen</h5>
     </div>
     <div class="card mb-4">
@@ -33,6 +36,27 @@
             <button type="submit" class="btn btn-danger">Ik ga akkoord en ga verder</button>
         </div>
     </form>
+    <script src="backendURL.js"></script>
+    <script src="serverStatus.js"></script>
+    <script>
+        document.getElementById('consentForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            try {
+                const response = await fetch(`${backendUrl()}/consent`, {
+                    method: 'POST'
+                });
+
+                if (response.ok) {
+                    window.location.href = 'homepage.html';
+                } else {
+                    alert('Er is een fout opgetreden. Probeer het later opnieuw.');
+                }
+            } catch (error) {
+                alert('Kan geen verbinding maken met de server.');
+            }
+        });
+    </script>
 </body>
 
 </html>
