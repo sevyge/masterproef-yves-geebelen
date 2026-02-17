@@ -10,12 +10,14 @@
 
 <body class="container py-5" style="max-width: 800px;">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>Toestemmingsformulier</h2>
+        <img src="uhasselt-liggend.png" alt="UHasselt Logo" class="img-fluid" style="max-width: 200px;">
         <span id="serverStatus"></span>
     </div>
+
     <div class="mb-4">
-        <h5 class="text-muted">Onderzoek: Masterproef Yves Geebelen</h5>
+        <h5 class="text-muted">Toestemmingsformulier - Onderzoek: Masterproef Yves Geebelen</h5>
     </div>
+
     <div class="card mb-4">
         <div class="card-body p-0" style="height: 60vh;">
             <iframe src="toestemmingsformulier.pdf" width="100%" height="100%" style="border: none;">
@@ -50,7 +52,7 @@
                 if (response.ok) {
                     const data = await response.json();
                     localStorage.setItem('participant_id', data.participant_id);
-                    window.location.href = 'homepage.html';
+                    window.location.href = 'startpagina.html';
                 } else {
                     alert('Er is een fout opgetreden. Probeer het later opnieuw.');
                 }
