@@ -61,17 +61,18 @@ transcript_log: dict[str, list[dict[str, Any]]] = {}
 SCOPES = ["https://www.googleapis.com/auth/drive"]
 SERVICE_ACCOUNT_FILE = "service_account.json"
 
-if os.path.exists(SERVICE_ACCOUNT_FILE):
-    creds = service_account.Credentials.from_service_account_file(
-        SERVICE_ACCOUNT_FILE, scopes=SCOPES
-    )
-    service = build("drive", "v3", credentials=creds)
-else:
-    service = None
-
+def get_drive_service():
+    """Create a new instance of the Drive API service."""
+    if os.path.exists(SERVICE_ACCOUNT_FILE):
+        creds = service_account.Credentials.from_service_account_file(
+            SERVICE_ACCOUNT_FILE, scopes=SCOPES
+        )
+        return build("drive", "v3", credentials=creds, cache_discovery=False)
+    return None
 
 def get_or_create_participant_folder(participant_id: str) -> str:
     """Return the Drive folder ID for a participant, creating it if needed."""
+    service = get_drive_service()
     if service is None:
         raise FileNotFoundError("Service account file not found.")
 
@@ -117,6 +118,7 @@ def get_or_create_participant_folder(participant_id: str) -> str:
 
 def get_next_participant_id() -> str:
     """Determine the next participant ID by counting existing folders."""
+    service = get_drive_service()
     if service is None:
         return "1"  # Fallback if no Drive access
 
@@ -169,6 +171,7 @@ def upload_to_google_drive(
         FileNotFoundError: If the service-account JSON is missing.
         Exception:         Any Google API error.
     """
+    service = get_drive_service()
     if service is None:
         raise FileNotFoundError("Service account file not found.")
 
@@ -181,7 +184,8 @@ def upload_to_google_drive(
     if folder:
         file_metadata["parents"] = [folder]
 
-    media = MediaIoBaseUpload(file_stream, mimetype=mimetype, resumable=True)
+    # Set chunk size to 5MB for resilient chunked uploads
+    media = MediaIoBaseUpload(file_stream, mimetype=mimetype, resumable=True, chunksize=5 * 1024 * 1024)
 
     existing_file_id = None
     if overwrite and folder:
@@ -201,17 +205,16 @@ def upload_to_google_drive(
             existing_file_id = files[0]["id"]
 
     if existing_file_id:
-        file = (
+        request = (
             service.files()
             .update(
                 fileId=existing_file_id,
                 media_body=media,
                 supportsAllDrives=True,
             )
-            .execute()
         )
     else:
-        file = (
+        request = (
             service.files()
             .create(
                 body=file_metadata,
@@ -219,20 +222,25 @@ def upload_to_google_drive(
                 fields="id",
                 supportsAllDrives=True,
             )
-            .execute()
         )
 
-    return {"file_id": file.get("id")}
+    # Execute resumable upload in chunks
+    response = None
+    while response is None:
+        status, response = request.next_chunk()
+        if status:
+            logging.info(f"Uploaded {int(status.progress() * 100)}% of {filename}")
+
+    return {"file_id": response.get("id")}
 
 
 @app.get("/")
 async def root():
     return {"message": "Success"}
 
-
 # Informed consent endpoint
 @app.post("/consent")
-async def consent(participant_id: str = Form(None)):
+def consent(participant_id: str = Form(None)):
     if not participant_id:
         participant_id = get_next_participant_id()
         logging.info(f"Generated new participant ID: {participant_id}")
@@ -269,7 +277,7 @@ async def consent(participant_id: str = Form(None)):
 
 # Upload video endpoint
 @app.post("/upload-video")
-async def upload_video(video: UploadFile = File(...), participant_id: str = Form(...)):
+def upload_video(video: UploadFile = File(...), participant_id: str = Form(...)):
     # input validation
     if video.content_type not in ["video/webm", "video/mp4"]:
         return {"error": "Invalid file type. Only .webm and .mp4 are allowed."}
@@ -299,9 +307,9 @@ async def upload_video(video: UploadFile = File(...), participant_id: str = Form
 
 
 @app.post("/transcribe")
-async def transcribe(audio: UploadFile = File(...)):
+def transcribe(audio: UploadFile = File(...)):
     with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as temp_file:
-        temp_file.write(await audio.read())
+        temp_file.write(audio.file.read())
         temp_file_path = temp_file.name
 
     try:
@@ -370,7 +378,7 @@ def upload_transcript_files_background(participant_id: str, participant_log: lis
 
 
 @app.post("/chat")
-async def chat(
+def chat(
     background_tasks: BackgroundTasks,
     transcript: str = Form(...),
     screenshot: str = Form(None),
@@ -455,7 +463,7 @@ async def chat(
 
 
 @app.post("/tts-stream")
-async def tts_stream(text: str = Form(...)):
+def tts_stream(text: str = Form(...)):
     try:
         logging.info(f"TTS streaming started at {time.strftime('%Y-%m-%d %H:%M:%S')}")
         response = client.audio.speech.create(
