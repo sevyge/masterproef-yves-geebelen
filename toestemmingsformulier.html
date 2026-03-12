@@ -35,7 +35,10 @@
         </div>
         <div class="d-flex justify-content-between align-items-center">
             <a class="btn btn-danger btn" href="inlichtingenblad.html">Ga terug</a>
-            <button type="submit" class="btn btn-danger">Ik ga akkoord en ga verder</button>
+            <button type="submit" class="btn btn-danger" id="submitBtn">
+                <span class="spinner-border spinner-border-sm d-none" id="submitSpinner" role="status" aria-hidden="true"></span>
+                <span id="submitText">Ik ga akkoord en ga verder</span>
+            </button>
         </div>
     </form>
     <script src="backendURL.js"></script>
@@ -43,6 +46,15 @@
     <script>
         document.getElementById('consentForm').addEventListener('submit', async function (e) {
             e.preventDefault();
+
+            const submitBtn = document.getElementById('submitBtn');
+            const submitSpinner = document.getElementById('submitSpinner');
+            const submitText = document.getElementById('submitText');
+
+            // Show loading state
+            submitBtn.disabled = true;
+            submitSpinner.classList.remove('d-none');
+            submitText.textContent = 'Even geduld...';
 
             try {
                 const response = await fetch(`${backendUrl()}/consent`, {
@@ -55,9 +67,17 @@
                     window.location.href = 'startpagina.html';
                 } else {
                     alert('Er is een fout opgetreden. Probeer het later opnieuw.');
+                    // Reset button if error
+                    submitBtn.disabled = false;
+                    submitSpinner.classList.add('d-none');
+                    submitText.textContent = 'Ik ga akkoord en ga verder';
                 }
             } catch (error) {
                 alert('Kan geen verbinding maken met de server.');
+                // Reset button if error
+                submitBtn.disabled = false;
+                submitSpinner.classList.add('d-none');
+                submitText.textContent = 'Ik ga akkoord en ga verder';
             }
         });
     </script>
