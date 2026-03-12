@@ -1,7 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, StreamingResponse
-from typing import Any
+from typing import Any, Literal
 from openai import AzureOpenAI
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -184,26 +184,41 @@ def upload_to_google_drive(
     existing_file_id = None
     if overwrite and folder:
         query = f"name = '{filename}' and '{folder}' in parents and trashed = false"
-        results = service.files().list(
-            q=query, fields="files(id)", supportsAllDrives=True, includeItemsFromAllDrives=True
-        ).execute()
+        results = (
+            service.files()
+            .list(
+                q=query,
+                fields="files(id)",
+                supportsAllDrives=True,
+                includeItemsFromAllDrives=True,
+            )
+            .execute()
+        )
         files = results.get("files", [])
         if files:
             existing_file_id = files[0]["id"]
 
     if existing_file_id:
-        file = service.files().update(
-            fileId=existing_file_id,
-            media_body=media,
-            supportsAllDrives=True,
-        ).execute()
+        file = (
+            service.files()
+            .update(
+                fileId=existing_file_id,
+                media_body=media,
+                supportsAllDrives=True,
+            )
+            .execute()
+        )
     else:
-        file = service.files().create(
-            body=file_metadata,
-            media_body=media,
-            fields="id",
-            supportsAllDrives=True,
-        ).execute()
+        file = (
+            service.files()
+            .create(
+                body=file_metadata,
+                media_body=media,
+                fields="id",
+                supportsAllDrives=True,
+            )
+            .execute()
+        )
 
     return {"file_id": file.get("id")}
 
@@ -307,7 +322,7 @@ async def transcribe(audio: UploadFile = File(...)):
 
 
 class ChatClassification(BaseModel):
-    label: str
+    labels: list[Literal["DK", "PK", "CK", "DOM", "NONE"]]
     confidence_score: float
 
 
@@ -324,9 +339,26 @@ async def chat(
     if screenshot:
         user_content.append({"type": "input_image", "image_url": screenshot})
 
+    system_prompt = """You are an expert cognitive scientist and qualitative researcher specializing in analyzing 'think-aloud' protocols within process mining. As an objective academic coder for an observational study, your task is to classify short transcript segments (combined with an optional screenshot) into one or more of the following labels: ['DK', 'PK', 'CK', 'DOM', 'NONE'].
+
+    Evaluation Hierarchy & Definitions:
+    Evaluate the transcript step-by-step to assign your labels. Multiple labels are allowed ONLY if distinct cognitive structures are present.
+    1. Check for Domain Knowledge ('DOM'): Does the analyst use specific terminology, theories, or concepts distinct to the process mining domain? -> Add 'DOM'.
+    2. Check for Conditional Knowledge ('CK'): Is the analyst formulating a hypothesis, strategy, or explaining the defining *reason/if-then* correlation behind an action? -> Add 'CK'.
+    3. Check for Procedural Knowledge ('PK'): Is the analyst strictly describing *how* they are interacting with the software (e.g., clicking, basic UI navigation) WITHOUT stating a hypothesis? -> Add 'PK'.
+    4. Check for Declarative Knowledge ('DK'): Is the analyst merely stating general facts, static observations ("what"), or reading data off the screen? -> Add 'DK'.
+    5. Check for Non-Substantive ('NONE'): Is the utterance purely filler ("Uhm", "Let me see", "Oops") or lacks any recognizable cognitive process mining structure? -> Assign 'NONE'.
+
+    Context Usage Instructions:
+    - The input transcript is in Dutch.
+    - Use the screenshot solely to resolve ambiguous verbal references (e.g., understanding *where* the analyst clicked). The final classification must be anchored to the verbal utterance.
+    - IMPORTANT: The 'labels' list cannot be empty. If steps 1-4 yield no labels, or if the transcript is purely filler, you MUST return exactly ['NONE'].
+    - Do not hallucinate meaning. If you are highly uncertain, prioritize ['NONE'] and output a low confidence score.
+    - Provide a 'confidence_score' between 0.0 and 1.0."""
+
     response = client.responses.parse(
         model=CHAT_DEPLOYMENT,
-        instructions="",
+        instructions=system_prompt,
         # tools=[
         #     {"type": "file_search", "vector_store_ids": ["vs_Nby42pG9UlWm64WxQmIPBHtW"]}
         # ],
@@ -346,19 +378,22 @@ async def chat(
         logging.error("Model returned no parsed output (possible refusal).")
         return {"error": "No structured output returned by the model."}
 
-    label = parsed.label
+    labels = parsed.labels
     confidence_score = parsed.confidence_score
 
-    logging.info(f"Chat response: {label} (confidence: {confidence_score})")
+    logging.info(f"Chat response: {labels} (confidence: {confidence_score})")
 
     # Create an empty log for this participant if it doesn't exist yet
     if participant_id not in transcript_log:
         transcript_log[participant_id] = []
 
     entry_number = len(transcript_log[participant_id]) + 1
+    labels_str = ", ".join(labels) if labels else "None"
 
-    # Add the transcript with the knowledge structure classification to the log: speech (label) entry number
-    transcript_log[participant_id].append(f"{transcript} ({label} - {confidence_score}) {entry_number}")
+    # Add the transcript with the knowledge structure classification to the log: speech (labels) entry number
+    transcript_log[participant_id].append(
+        f"{transcript} ({labels_str} - {confidence_score}) {entry_number}"
+    )
 
     try:
         log_content = "\n".join(transcript_log[participant_id])
@@ -370,11 +405,13 @@ async def chat(
             folder_id=participant_folder,
             overwrite=True,
         )
-        logging.info(f"Transcript with knowledge structure updated for participant {participant_id}")
+        logging.info(
+            f"Transcript with knowledge structure updated for participant {participant_id}"
+        )
     except Exception as e:
         logging.error(f"Error uploading transcript log: {e}")
 
-    return {"response": label, "response_id": response.id}
+    return {"response": labels_str, "response_id": response.id}
 
 
 @app.post("/tts-stream")
