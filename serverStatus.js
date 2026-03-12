@@ -2,6 +2,7 @@
 
 const serverStatusElement = document.getElementById('serverStatus');
 let lastStatus = 'unknown';
+const backendBaseUrl = backendUrl();
 
 function setServerStatus(text, color) {
     serverStatusElement.innerHTML = `<span style="color:${color}">● </span>${text}`;
@@ -12,7 +13,7 @@ async function checkServerStatus() {
         setServerStatus('Connecting to server...', 'orange');
     }
     try {
-        const response = await fetch("http://localhost:8000" + '/');
+        const response = await fetch(backendBaseUrl + '/');
         if (response.ok) {
             lastStatus = "online";
             setServerStatus('Server status: Online', 'green');
