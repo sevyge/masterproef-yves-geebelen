@@ -149,6 +149,7 @@ def upload_to_google_drive(
     filename: str,
     mimetype: str,
     folder_id: str | None = None,
+    overwrite: bool = False,
 ) -> dict[str, str]:
     """Upload a file to Google Drive and return its id.
 
@@ -157,6 +158,7 @@ def upload_to_google_drive(
         filename:    The name the file will have on Drive.
         mimetype:    MIME type of the file (e.g. "video/webm", "text/markdown").
         folder_id:   Optional Drive folder ID. Falls back to GOOGLE_DRIVE_FOLDER_ID env var.
+        overwrite:   If True, search for an existing file with the same name in the folder and overwrite it.
 
     Returns:
         dict with key "file_id".
@@ -179,16 +181,29 @@ def upload_to_google_drive(
 
     media = MediaIoBaseUpload(file_stream, mimetype=mimetype, resumable=True)
 
-    file = (
-        service.files()
-        .create(
+    existing_file_id = None
+    if overwrite and folder:
+        query = f"name = '{filename}' and '{folder}' in parents and trashed = false"
+        results = service.files().list(
+            q=query, fields="files(id)", supportsAllDrives=True, includeItemsFromAllDrives=True
+        ).execute()
+        files = results.get("files", [])
+        if files:
+            existing_file_id = files[0]["id"]
+
+    if existing_file_id:
+        file = service.files().update(
+            fileId=existing_file_id,
+            media_body=media,
+            supportsAllDrives=True,
+        ).execute()
+    else:
+        file = service.files().create(
             body=file_metadata,
             media_body=media,
             fields="id",
             supportsAllDrives=True,
-        )
-        .execute()
-    )
+        ).execute()
 
     return {"file_id": file.get("id")}
 
@@ -353,6 +368,7 @@ async def chat(
             filename=f"transcript_met_kennisstructuur_{participant_id}.txt",
             mimetype="text/plain",
             folder_id=participant_folder,
+            overwrite=True,
         )
         logging.info(f"Transcript with knowledge structure updated for participant {participant_id}")
     except Exception as e:
