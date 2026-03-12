@@ -407,14 +407,14 @@ async def chat(
         # Generate CSV in memory
         output = io.StringIO()
         writer = csv.DictWriter(
-            output, 
+            output,
             fieldnames=["entry_number", "timestamp", "transcript", "labels", "confidence_score"],
             delimiter=";"
         )
         writer.writeheader()
         writer.writerows(transcript_log[participant_id])
         csv_content = output.getvalue()
-        
+
         participant_folder = get_or_create_participant_folder(participant_id)
         upload_to_google_drive(
             file_stream=csv_content.encode("utf-8-sig"),
