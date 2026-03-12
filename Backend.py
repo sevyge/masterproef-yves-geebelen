@@ -12,6 +12,8 @@ import tempfile
 import time
 import os
 import logging
+import csv
+import io
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -53,7 +55,7 @@ client = AzureOpenAI(
 )
 
 # In-memory transcript log per participant
-transcript_log: dict[str, list[str]] = {}
+transcript_log: dict[str, list[dict[str, Any]]] = {}
 
 # Google Drive setup
 SCOPES = ["https://www.googleapis.com/auth/drive"]
@@ -390,26 +392,42 @@ async def chat(
     entry_number = len(transcript_log[participant_id]) + 1
     labels_str = ", ".join(labels) if labels else "None"
 
-    # Add the transcript with the knowledge structure classification to the log: speech (labels) entry number
+    # Add the transcript with the knowledge structure classification to the log
     transcript_log[participant_id].append(
-        f"{transcript} ({labels_str} - {confidence_score}) {entry_number}"
+        {
+            "entry_number": entry_number,
+            "transcript": transcript,
+            "labels": labels_str,
+            "confidence_score": confidence_score,
+            "timestamp": time.strftime('%Y-%m-%d %H:%M:%S')
+        }
     )
 
     try:
-        log_content = "\n".join(transcript_log[participant_id])
+        # Generate CSV in memory
+        output = io.StringIO()
+        writer = csv.DictWriter(
+            output, 
+            fieldnames=["entry_number", "timestamp", "transcript", "labels", "confidence_score"],
+            delimiter=";"
+        )
+        writer.writeheader()
+        writer.writerows(transcript_log[participant_id])
+        csv_content = output.getvalue()
+        
         participant_folder = get_or_create_participant_folder(participant_id)
         upload_to_google_drive(
-            file_stream=log_content.encode("utf-8"),
-            filename=f"transcript_met_kennisstructuur_{participant_id}.txt",
-            mimetype="text/plain",
+            file_stream=csv_content.encode("utf-8-sig"),
+            filename=f"transcript_met_kennisstructuur_{participant_id}.csv",
+            mimetype="text/csv",
             folder_id=participant_folder,
             overwrite=True,
         )
         logging.info(
-            f"Transcript with knowledge structure updated for participant {participant_id}"
+            f"Transcript CSV updated for participant {participant_id}"
         )
     except Exception as e:
-        logging.error(f"Error uploading transcript log: {e}")
+        logging.error(f"Error uploading transcript CSV: {e}")
 
     return {"response": labels_str, "response_id": response.id}
 
