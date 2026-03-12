@@ -83,18 +83,18 @@ async function toggleRecording() {
                     lastChatResult = chatResult;
                     transcription.textContent += '\nChat model response: ' + chatResult.response;
 
-                    if (chatResult.response) {
-                        const formDataTTS = new FormData();
-                        formDataTTS.append('text', chatResult.response);
-                        const ttsResponse = await fetch(`${backendBaseUrl}/tts-stream`, {
-                            method: 'POST',
-                            body: formDataTTS
-                        });
-                        const ttsBlob = await ttsResponse.blob();
-                        const ttsObjectUrl = URL.createObjectURL(ttsBlob);
-                        ttsAudio.src = ttsObjectUrl;
-                        ttsAudio.play();
-                    }
+                    // if (chatResult.response) {
+                    //     const formDataTTS = new FormData();
+                    //     formDataTTS.append('text', chatResult.response);
+                    //     const ttsResponse = await fetch(`${backendBaseUrl}/tts-stream`, {
+                    //         method: 'POST',
+                    //         body: formDataTTS
+                    //     });
+                    //     const ttsBlob = await ttsResponse.blob();
+                    //     const ttsObjectUrl = URL.createObjectURL(ttsBlob);
+                    //     ttsAudio.src = ttsObjectUrl;
+                    //     ttsAudio.play();
+                    // }
                 }
             } catch (error) {
                 transcription.textContent = 'Error: Server reageert niet.';

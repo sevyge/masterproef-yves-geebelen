@@ -29,5 +29,5 @@ async function checkServerStatus() {
 
 window.addEventListener('load', () => {
     checkServerStatus();
-    setInterval(checkServerStatus, 10000);
+    setInterval(checkServerStatus, 100000);
 });
