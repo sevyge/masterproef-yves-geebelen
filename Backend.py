@@ -426,8 +426,21 @@ async def chat(
         logging.info(
             f"Transcript CSV updated for participant {participant_id}"
         )
+
+        # Create full transcript
+        full_transcript_text = "\n".join([f"[{entry['timestamp']}] {entry['transcript']}" for entry in transcript_log[participant_id]])
+        upload_to_google_drive(
+            file_stream=full_transcript_text.encode("utf-8"),
+            filename=f"full_transcript_{participant_id}.txt",
+            mimetype="text/plain",
+            folder_id=participant_folder,
+            overwrite=True,
+        )
+        logging.info(
+            f"Full transcript TXT updated for participant {participant_id}"
+        )
     except Exception as e:
-        logging.error(f"Error uploading transcript CSV: {e}")
+        logging.error(f"Error uploading transcript files: {e}")
 
     return {"response": labels_str, "response_id": response.id}
 
