@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, Form
+from fastapi import FastAPI, UploadFile, File, Form, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, StreamingResponse
 from typing import Any, Literal
@@ -328,8 +328,50 @@ class ChatClassification(BaseModel):
     confidence_score: float
 
 
+def upload_transcript_files_background(participant_id: str, participant_log: list):
+    try:
+        # Generate CSV in memory
+        output = io.StringIO()
+        writer = csv.DictWriter(
+            output,
+            fieldnames=["entry_number", "timestamp", "transcript", "labels", "confidence_score"],
+            delimiter=";"
+        )
+        writer.writeheader()
+        writer.writerows(participant_log)
+        csv_content = output.getvalue()
+
+        participant_folder = get_or_create_participant_folder(participant_id)
+        upload_to_google_drive(
+            file_stream=csv_content.encode("utf-8-sig"),
+            filename=f"transcript_met_kennisstructuur_{participant_id}.csv",
+            mimetype="text/csv",
+            folder_id=participant_folder,
+            overwrite=True,
+        )
+        logging.info(
+            f"Transcript CSV updated for participant {participant_id}"
+        )
+
+        # Create full transcript
+        full_transcript_text = "\n".join([f"[{entry['timestamp']}] {entry['transcript']}" for entry in participant_log])
+        upload_to_google_drive(
+            file_stream=full_transcript_text.encode("utf-8"),
+            filename=f"full_transcript_{participant_id}.txt",
+            mimetype="text/plain",
+            folder_id=participant_folder,
+            overwrite=True,
+        )
+        logging.info(
+            f"Full transcript TXT updated for participant {participant_id}"
+        )
+    except Exception as e:
+        logging.error(f"Error uploading transcript files: {e}")
+
+
 @app.post("/chat")
 async def chat(
+    background_tasks: BackgroundTasks,
     transcript: str = Form(...),
     screenshot: str = Form(None),
     previous_response_id: str = Form(None),
@@ -403,44 +445,11 @@ async def chat(
         }
     )
 
-    try:
-        # Generate CSV in memory
-        output = io.StringIO()
-        writer = csv.DictWriter(
-            output,
-            fieldnames=["entry_number", "timestamp", "transcript", "labels", "confidence_score"],
-            delimiter=";"
-        )
-        writer.writeheader()
-        writer.writerows(transcript_log[participant_id])
-        csv_content = output.getvalue()
-
-        participant_folder = get_or_create_participant_folder(participant_id)
-        upload_to_google_drive(
-            file_stream=csv_content.encode("utf-8-sig"),
-            filename=f"transcript_met_kennisstructuur_{participant_id}.csv",
-            mimetype="text/csv",
-            folder_id=participant_folder,
-            overwrite=True,
-        )
-        logging.info(
-            f"Transcript CSV updated for participant {participant_id}"
-        )
-
-        # Create full transcript
-        full_transcript_text = "\n".join([f"[{entry['timestamp']}] {entry['transcript']}" for entry in transcript_log[participant_id]])
-        upload_to_google_drive(
-            file_stream=full_transcript_text.encode("utf-8"),
-            filename=f"full_transcript_{participant_id}.txt",
-            mimetype="text/plain",
-            folder_id=participant_folder,
-            overwrite=True,
-        )
-        logging.info(
-            f"Full transcript TXT updated for participant {participant_id}"
-        )
-    except Exception as e:
-        logging.error(f"Error uploading transcript files: {e}")
+    background_tasks.add_task(
+        upload_transcript_files_background,
+        participant_id,
+        list(transcript_log[participant_id])
+    )
 
     return {"response": labels_str, "response_id": response.id}
 
