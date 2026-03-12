@@ -61,6 +61,7 @@ transcript_log: dict[str, list[dict[str, Any]]] = {}
 SCOPES = ["https://www.googleapis.com/auth/drive"]
 SERVICE_ACCOUNT_FILE = "service_account.json"
 
+
 def get_drive_service():
     """Create a new instance of the Drive API service."""
     if os.path.exists(SERVICE_ACCOUNT_FILE):
@@ -69,6 +70,7 @@ def get_drive_service():
         )
         return build("drive", "v3", credentials=creds, cache_discovery=False)
     return None
+
 
 def get_or_create_participant_folder(participant_id: str) -> str:
     """Return the Drive folder ID for a participant, creating it if needed."""
@@ -237,6 +239,7 @@ def upload_to_google_drive(
 @app.get("/")
 async def root():
     return {"message": "Success"}
+
 
 # Informed consent endpoint
 @app.post("/consent")
