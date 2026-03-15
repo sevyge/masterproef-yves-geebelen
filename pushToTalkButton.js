@@ -38,26 +38,36 @@ pipButton.addEventListener('click', async () => {
           font-size: 16px;
         }
       </style>
-      <button id="recordButton">Klik om te praten</button>
+      <button id="sessionButton">Start onderzoek</button>
     `;
 
 
 
-    const recordButton = pipWindow.document.getElementById('recordButton');
-    window.recordButton = recordButton;
-    recordButton.onclick = () => {
-      if (recordButton.textContent === 'Klik om te praten') {
-        window.screenshotBase64 = takeScreenshot(video);
+    const sessionButton = pipWindow.document.getElementById('sessionButton');
+    window.recordButton = sessionButton;
+    sessionButton.onclick = async () => {
+      try {
+        if (window.vadEnabled) {
+          await window.disableVoiceActivation();
+        } else if (window.enableVoiceActivation) {
+          await window.enableVoiceActivation();
+        }
+      } catch (error) {
+        alert('Kon onderzoek niet starten: ' + error.message);
       }
-      window.toggleRecording();
     };
 
     pipWindow.addEventListener('pagehide', () => {
       pipButton.disabled = false;
       pipButton.textContent = "Open Overlay";
+      if (window.vadEnabled && window.disableVoiceActivation) {
+        void window.disableVoiceActivation();
+      }
       if (video && video.srcObject) {
         video.srcObject.getTracks().forEach(track => track.stop());
       }
+      window.recordButton = null;
+      window.screenshotBase64 = null;
     });
 
   } else {
@@ -76,4 +86,11 @@ function takeScreenshot(video) {
   screenshotBase64 = canvas.toDataURL('image/png');
   return screenshotBase64;
 }
+
+window.captureCurrentScreenshot = () => {
+  if (!video || video.readyState < 2) {
+    return null;
+  }
+  return takeScreenshot(video);
+};
 
