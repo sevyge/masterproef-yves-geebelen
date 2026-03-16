@@ -189,7 +189,9 @@ def upload_to_google_drive(
         file_metadata["parents"] = [folder]
 
     # Set chunk size to 5MB for resilient chunked uploads
-    media = MediaIoBaseUpload(file_stream, mimetype=mimetype, resumable=True, chunksize=5 * 1024 * 1024)
+    media = MediaIoBaseUpload(
+        file_stream, mimetype=mimetype, resumable=True, chunksize=5 * 1024 * 1024
+    )
 
     existing_file_id = None
     if overwrite and folder:
@@ -209,23 +211,17 @@ def upload_to_google_drive(
             existing_file_id = files[0]["id"]
 
     if existing_file_id:
-        request = (
-            service.files()
-            .update(
-                fileId=existing_file_id,
-                media_body=media,
-                supportsAllDrives=True,
-            )
+        request = service.files().update(
+            fileId=existing_file_id,
+            media_body=media,
+            supportsAllDrives=True,
         )
     else:
-        request = (
-            service.files()
-            .create(
-                body=file_metadata,
-                media_body=media,
-                fields="id",
-                supportsAllDrives=True,
-            )
+        request = service.files().create(
+            body=file_metadata,
+            media_body=media,
+            fields="id",
+            supportsAllDrives=True,
         )
 
     # Execute resumable upload in chunks
@@ -347,8 +343,14 @@ def upload_transcript_files_background(participant_id: str, participant_log: lis
         output = io.StringIO()
         writer = csv.DictWriter(
             output,
-            fieldnames=["entry_number", "timestamp", "transcript", "labels", "confidence_score"],
-            delimiter=";"
+            fieldnames=[
+                "entry_number",
+                "timestamp",
+                "transcript",
+                "labels",
+                "confidence_score",
+            ],
+            delimiter=";",
         )
         writer.writeheader()
         writer.writerows(participant_log)
@@ -362,12 +364,15 @@ def upload_transcript_files_background(participant_id: str, participant_log: lis
             folder_id=participant_folder,
             overwrite=True,
         )
-        logging.info(
-            f"Transcript CSV updated for participant {participant_id}"
-        )
+        logging.info(f"Transcript CSV updated for participant {participant_id}")
 
         # Create full transcript
-        full_transcript_text = "\n".join([f"[{entry['timestamp']}] {entry['transcript']}" for entry in participant_log])
+        full_transcript_text = "\n".join(
+            [
+                f"[{entry['timestamp']}] {entry['transcript']}"
+                for entry in participant_log
+            ]
+        )
         upload_to_google_drive(
             file_stream=full_transcript_text.encode("utf-8"),
             filename=f"full_transcript_{participant_id}.txt",
@@ -375,9 +380,7 @@ def upload_transcript_files_background(participant_id: str, participant_log: lis
             folder_id=participant_folder,
             overwrite=True,
         )
-        logging.info(
-            f"Full transcript TXT updated for participant {participant_id}"
-        )
+        logging.info(f"Full transcript TXT updated for participant {participant_id}")
     except Exception as e:
         logging.error(f"Error uploading transcript files: {e}")
 
@@ -393,7 +396,7 @@ def chat(
     logging.info(f"Received chat prompt: {transcript}")
 
     user_content: list[dict[str, str]] = [{"type": "input_text", "text": transcript}]
-    #if screenshot:
+    # if screenshot:
     #    user_content.append({"type": "input_image", "image_url": screenshot})
 
     system_prompt = """You are an expert cognitive scientist and qualitative researcher specializing in analyzing 'think-aloud' protocols within process mining. As an objective academic coder for an observational study, your task is to classify short transcript segments (combined with an optional screenshot) into one or more of the following labels: ['DK', 'PK', 'CK', 'DOM', 'NONE'].
@@ -454,14 +457,14 @@ def chat(
             "transcript": transcript,
             "labels": labels_str,
             "confidence_score": confidence_score,
-            "timestamp": time.strftime('%Y-%m-%d %H:%M:%S')
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
         }
     )
 
     background_tasks.add_task(
         upload_transcript_files_background,
         participant_id,
-        list(transcript_log[participant_id])
+        list(transcript_log[participant_id]),
     )
 
     return {"response": labels_str, "response_id": response.id}
