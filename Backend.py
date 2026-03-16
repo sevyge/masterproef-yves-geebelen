@@ -26,7 +26,9 @@ logging.basicConfig(
 AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
 AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT", "")
 AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION")
-WHISPER_DEPLOYMENT = os.getenv("WHISPER_DEPLOYMENT", "")
+TRANSCRIBE_DEPLOYMENT = os.getenv(
+    "TRANSCRIBE_DEPLOYMENT", os.getenv("WHISPER_DEPLOYMENT", "gpt-4o-transcribe")
+)
 CHAT_DEPLOYMENT = os.getenv("CHAT_DEPLOYMENT", "")
 TTS_DEPLOYMENT = os.getenv("TTS_DEPLOYMENT", "")
 
@@ -321,7 +323,7 @@ def transcribe(audio: UploadFile = File(...)):
         )
         with open(temp_file_path, "rb") as f:
             result = client.audio.transcriptions.create(
-                model=WHISPER_DEPLOYMENT, file=f, language="nl"
+                model=TRANSCRIBE_DEPLOYMENT, file=f, language="nl"
             )
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
@@ -391,8 +393,8 @@ def chat(
     logging.info(f"Received chat prompt: {transcript}")
 
     user_content: list[dict[str, str]] = [{"type": "input_text", "text": transcript}]
-    if screenshot:
-        user_content.append({"type": "input_image", "image_url": screenshot})
+    #if screenshot:
+    #    user_content.append({"type": "input_image", "image_url": screenshot})
 
     system_prompt = """You are an expert cognitive scientist and qualitative researcher specializing in analyzing 'think-aloud' protocols within process mining. As an objective academic coder for an observational study, your task is to classify short transcript segments (combined with an optional screenshot) into one or more of the following labels: ['DK', 'PK', 'CK', 'DOM', 'NONE'].
 
