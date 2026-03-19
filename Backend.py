@@ -7,8 +7,6 @@ import tempfile
 import time
 import os
 import logging
-import csv
-import io
 from dotenv import load_dotenv
 from models import ChatClassification
 from signature_utils import (
@@ -18,7 +16,8 @@ from signature_utils import (
 from services.google_drive_functions import (
     get_or_create_participant_folder,
     get_next_participant_id,
-    upload_to_google_drive
+    upload_to_google_drive,
+    upload_transcript_files
 )
 
 load_dotenv()
@@ -188,54 +187,6 @@ def transcribe(audio: UploadFile = File(...)):
         raise e
 
 
-def upload_transcript_files_background(participant_id: str, participant_log: list):
-    try:
-        # Generate CSV in memory
-        output = io.StringIO()
-        writer = csv.DictWriter(
-            output,
-            fieldnames=[
-                "entry_number",
-                "timestamp",
-                "transcript",
-                "labels",
-                "confidence_score",
-            ],
-            delimiter=";",
-        )
-        writer.writeheader()
-        writer.writerows(participant_log)
-        csv_content = output.getvalue()
-
-        participant_folder = get_or_create_participant_folder(participant_id)
-        upload_to_google_drive(
-            file_stream=csv_content.encode("utf-8-sig"),
-            filename=f"transcript_met_kennisstructuur_{participant_id}.csv",
-            mimetype="text/csv",
-            folder_id=participant_folder,
-            overwrite=True,
-        )
-        logging.info(f"Transcript CSV updated for participant {participant_id}")
-
-        # Create full transcript
-        full_transcript_text = "\n".join(
-            [
-                f"[{entry['timestamp']}] {entry['transcript']}"
-                for entry in participant_log
-            ]
-        )
-        upload_to_google_drive(
-            file_stream=full_transcript_text.encode("utf-8"),
-            filename=f"full_transcript_{participant_id}.txt",
-            mimetype="text/plain",
-            folder_id=participant_folder,
-            overwrite=True,
-        )
-        logging.info(f"Full transcript TXT updated for participant {participant_id}")
-    except Exception as e:
-        logging.error(f"Error uploading transcript files: {e}")
-
-
 @app.post("/chat")
 def chat(
     background_tasks: BackgroundTasks,
@@ -313,7 +264,7 @@ def chat(
     )
 
     background_tasks.add_task(
-        upload_transcript_files_background,
+        upload_transcript_files,
         participant_id,
         list(transcript_log[participant_id]),
     )
