@@ -1,9 +1,8 @@
 from fastapi import FastAPI, UploadFile, File, Form, BackgroundTasks, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, StreamingResponse
-from typing import Any, Literal
+from typing import Any
 from openai import AzureOpenAI
-from pydantic import BaseModel
 import tempfile
 import time
 import os
@@ -11,6 +10,7 @@ import logging
 import csv
 import io
 from dotenv import load_dotenv
+from models import ChatClassification
 from signature_utils import (
     decode_signature_data,
     stamp_signature_on_page_two,
@@ -186,11 +186,6 @@ def transcribe(audio: UploadFile = File(...)):
             os.remove(temp_file_path)
         logging.error(f"Error during transcription: {e}")
         raise e
-
-
-class ChatClassification(BaseModel):
-    labels: list[Literal["DK", "PK", "CK", "DOM", "NONE"]]
-    confidence_score: float
 
 
 def upload_transcript_files_background(participant_id: str, participant_log: list):
