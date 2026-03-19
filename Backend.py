@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, Form, BackgroundTasks
+from fastapi import FastAPI, UploadFile, File, Form, BackgroundTasks, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, StreamingResponse
 from typing import Any, Literal
@@ -15,6 +15,10 @@ import logging
 import csv
 import io
 from dotenv import load_dotenv
+from signature_utils import (
+    decode_signature_data,
+    stamp_signature_on_page_two,
+)
 
 load_dotenv()
 
@@ -241,34 +245,59 @@ async def root():
 
 # Informed consent endpoint
 @app.post("/consent")
-def consent(participant_id: str = Form(None)):
+def consent(
+    participant_id: str = Form(None),
+    signature_data: str = Form(None),
+):
     if not participant_id:
         participant_id = get_next_participant_id()
         logging.info(f"Generated new participant ID: {participant_id}")
     else:
         logging.info(f"Received consent from participant: {participant_id}")
 
+    if not signature_data:
+        raise HTTPException(
+            status_code=400,
+            detail="Missing required field: signature_data is required.",
+        )
+
+    signed_at_iso = time.strftime("%Y-%m-%d %H:%M:%S")
+
     try:
-        filename = f"Consent_{participant_id}_{time.strftime('%Y%m%d-%H%M%S')}.pdf"
+        timestamp = time.strftime("%Y%m%d-%H%M%S")
+        signed_filename = f"Consent_signed_{participant_id}_{timestamp}.pdf"
 
         participant_folder = get_or_create_participant_folder(participant_id)
 
-        if os.path.exists("toestemmingsformulier.pdf"):
-            with open("toestemmingsformulier.pdf", "rb") as pdf_file:
-                file_id = upload_to_google_drive(
-                    file_stream=pdf_file,
-                    filename=filename,
-                    mimetype="application/pdf",
-                    folder_id=participant_folder,
-                )
-                logging.info(
-                    f"Uploaded consent PDF to Google Drive with file ID: {file_id['file_id']}"
-                )
-        else:
-            logging.error("Consent PDF not found.")
+        template_path = "toestemmingsformulier.pdf"
+        if not os.path.exists(template_path):
+            raise FileNotFoundError(f"Consent template not found at {template_path}")
+        signature_png = decode_signature_data(signature_data)
+        signed_pdf_content = stamp_signature_on_page_two(
+            template_path=template_path,
+            signature_png=signature_png,
+            signed_at_iso=signed_at_iso,
+            participant_id=participant_id,
+        )
+
+        signed_file = upload_to_google_drive(
+            file_stream=signed_pdf_content,
+            filename=signed_filename,
+            mimetype="application/pdf",
+            folder_id=participant_folder,
+        )
+
+        logging.info(
+            "Uploaded signed consent PDF (%s) for participant %s",
+            signed_file.get("file_id"),
+            participant_id,
+        )
 
     except Exception as e:
         logging.error(f"Error uploading consent PDF to Google Drive: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail="Failed to generate or upload signed consent form."
+        )
 
     return {
         "message": f"Consent received for participant {participant_id}",
