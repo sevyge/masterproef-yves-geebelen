@@ -20,6 +20,13 @@ function setRecordButtonLabel(label) {
     }
 }
 
+function setUploadStatus(message, isLoading = false) {
+    if (window.recordButton) {
+        window.recordButton.textContent = message;
+        window.recordButton.disabled = isLoading;
+    }
+}
+
 async function uploadScreenRecording(blob) {
     const participantId = localStorage.getItem('participant_id');
     const formData = new FormData();
@@ -63,10 +70,13 @@ function startScreenRecording(sessionAudioStream) {
         screenChunks = [];
 
         try {
+            setUploadStatus('Resultaten worden geupload...', true);
             await uploadScreenRecording(blob);
             console.log('Video uploaded successfully');
+            setUploadStatus('Resultaten zijn succesvol ingediend.', false);
         } catch (error) {
             console.error('Error uploading video:', error);
+            setUploadStatus('Upload mislukt. Probeer opnieuw.', false);
         } finally {
             shouldUploadScreenRecording = false;
         }
