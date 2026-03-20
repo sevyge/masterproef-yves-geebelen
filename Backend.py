@@ -8,8 +8,8 @@ import time
 import os
 import logging
 from dotenv import load_dotenv
-from models import ChatClassification
-from signature_utils import (
+from schemas.chat import ChatClassification
+from utils.signature_utils import (
     decode_signature_data,
     stamp_signature_on_page_two,
 )
