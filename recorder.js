@@ -1,6 +1,9 @@
 'use strict';
 
-let mediaRecorder, audioChunks = [], stream, isRecording = false;
+let mediaRecorder;
+let audioChunks = [];
+let stream;
+let isRecording = false;
 let screenRecorder, screenChunks = [];
 let lastChatResult = null;
 let vadEnabled = false;
@@ -10,6 +13,12 @@ let shouldUploadScreenRecording = false;
 const transcription = document.getElementById('transcription');
 const ttsAudio = document.getElementById('ttsAudio');
 const backendBaseUrl = backendUrl();
+
+function setRecordButtonLabel(label) {
+    if (window.recordButton) {
+        window.recordButton.textContent = label;
+    }
+}
 
 async function uploadScreenRecording(blob) {
     const participantId = localStorage.getItem('participant_id');
@@ -37,8 +46,10 @@ function startScreenRecording(sessionAudioStream) {
     screenChunks = [];
     shouldUploadScreenRecording = false;
 
-    screenRecorder.ondataavailable = e => {
-        if (e.data.size > 0) screenChunks.push(e.data);
+    screenRecorder.ondataavailable = event => {
+        if (event.data.size > 0) {
+            screenChunks.push(event.data);
+        }
     };
 
     screenRecorder.onstop = async () => {
@@ -70,9 +81,11 @@ async function startRecording(sharedStream) {
 
     mediaRecorder = new MediaRecorder(stream);
     audioChunks = [];
-    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+    mediaRecorder.ondataavailable = event => audioChunks.push(event.data);
     mediaRecorder.onstop = async () => {
-        if (!sharedStream) stream.getTracks().forEach(track => track.stop());
+        if (!sharedStream) {
+            stream.getTracks().forEach(track => track.stop());
+        }
         isRecording = false;
 
         try {
@@ -175,9 +188,7 @@ async function enableVoiceActivation() {
     vadEnabled = true;
     window.vadEnabled = vadEnabled;
     startScreenRecording(vadMicStream);
-    if (window.recordButton) {
-        window.recordButton.textContent = 'Beëindig onderzoek';
-    }
+    setRecordButtonLabel('Beëindig onderzoek');
     return true;
 }
 
@@ -199,14 +210,11 @@ async function disableVoiceActivation(uploadScreenRecording = false) {
             vadMicStream.getTracks().forEach(t => t.stop());
             vadMicStream = null;
         }
-
     }
 
     stopAudioChunkRecording();
     stopSessionScreenRecording(uploadScreenRecording);
-    if (window.recordButton) {
-        window.recordButton.textContent = 'Start onderzoek';
-    }
+    setRecordButtonLabel('Start onderzoek');
     return false;
 }
 
