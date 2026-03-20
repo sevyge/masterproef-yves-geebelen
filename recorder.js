@@ -6,42 +6,67 @@ let lastChatResult = null;
 let vadEnabled = false;
 let vadController = null;
 let vadMicStream = null;
+let shouldUploadScreenRecording = false;
 const transcription = document.getElementById('transcription');
 const ttsAudio = document.getElementById('ttsAudio');
 const backendBaseUrl = backendUrl();
 
+async function uploadScreenRecording(blob) {
+    const participantId = localStorage.getItem('participant_id');
+    const formData = new FormData();
+    formData.append('video', blob, `screen-recording-${new Date().toISOString().replace(/[:.]/g, '-')}.webm`);
+    formData.append('participant_id', participantId);
+
+    await fetch(`${backendBaseUrl}/upload-video`, {
+        method: 'POST',
+        body: formData
+    });
+}
+
+function startScreenRecording(sessionAudioStream) {
+    if (!window.videoStream || (screenRecorder && screenRecorder.state !== 'inactive')) {
+        return;
+    }
+
+    const screenStream = new MediaStream([
+        ...window.videoStream.getVideoTracks(),
+        ...sessionAudioStream.getAudioTracks()
+    ]);
+
+    screenRecorder = new MediaRecorder(screenStream);
+    screenChunks = [];
+    shouldUploadScreenRecording = false;
+
+    screenRecorder.ondataavailable = e => {
+        if (e.data.size > 0) screenChunks.push(e.data);
+    };
+
+    screenRecorder.onstop = async () => {
+        if (!shouldUploadScreenRecording || screenChunks.length === 0) {
+            screenChunks = [];
+            shouldUploadScreenRecording = false;
+            return;
+        }
+
+        const blob = new Blob(screenChunks, { type: 'video/webm' });
+        screenChunks = [];
+
+        try {
+            await uploadScreenRecording(blob);
+            console.log('Video uploaded successfully');
+        } catch (error) {
+            console.error('Error uploading video:', error);
+        } finally {
+            shouldUploadScreenRecording = false;
+        }
+    };
+
+    screenRecorder.start();
+}
+
 async function startRecording(sharedStream) {
     isRecording = true;
     stream = sharedStream || await navigator.mediaDevices.getUserMedia({ audio: true });
-
-    if (window.videoStream) {
-        const screenStream = new MediaStream([
-            ...window.videoStream.getVideoTracks(),
-            ...stream.getAudioTracks()
-        ]);
-        screenRecorder = new MediaRecorder(screenStream);
-        screenChunks = [];
-        screenRecorder.ondataavailable = e => {
-            if (e.data.size > 0) screenChunks.push(e.data);
-        };
-        screenRecorder.onstop = async () => {
-            const blob = new Blob(screenChunks, { type: 'video/webm' });
-            try {
-                const participantId = localStorage.getItem('participant_id');
-                const formData = new FormData();
-                formData.append('video', blob, `screen-recording-${new Date().toISOString().replace(/[:.]/g, '-')}.webm`);
-                formData.append('participant_id', participantId);
-                await fetch(`${backendBaseUrl}/upload-video`, {
-                    method: 'POST',
-                    body: formData
-                });
-                console.log('Video uploaded successfully');
-            } catch (error) {
-                console.error('Error uploading video:', error);
-            }
-        };
-        screenRecorder.start();
-    }
 
     mediaRecorder = new MediaRecorder(stream);
     audioChunks = [];
@@ -101,11 +126,15 @@ async function startRecording(sharedStream) {
     mediaRecorder.start();
 }
 
-function stopRecording() {
+function stopAudioChunkRecording() {
     if (mediaRecorder && mediaRecorder.state !== 'inactive') {
         mediaRecorder.stop();
     }
+}
+
+function stopSessionScreenRecording(uploadToDrive = false) {
     if (screenRecorder && screenRecorder.state !== 'inactive') {
+        shouldUploadScreenRecording = uploadToDrive;
         screenRecorder.stop();
     }
 }
@@ -138,20 +167,21 @@ async function enableVoiceActivation() {
             if (!isRecording) {
                 return;
             }
-            stopRecording();
+            stopAudioChunkRecording();
         }
     });
 
     await vadController.start();
     vadEnabled = true;
     window.vadEnabled = vadEnabled;
+    startScreenRecording(vadMicStream);
     if (window.recordButton) {
         window.recordButton.textContent = 'Beëindig onderzoek';
     }
     return true;
 }
 
-async function disableVoiceActivation() {
+async function disableVoiceActivation(uploadScreenRecording = false) {
     if (!vadEnabled) {
         return false;
     }
@@ -172,7 +202,8 @@ async function disableVoiceActivation() {
 
     }
 
-    stopRecording();
+    stopAudioChunkRecording();
+    stopSessionScreenRecording(uploadScreenRecording);
     if (window.recordButton) {
         window.recordButton.textContent = 'Start onderzoek';
     }

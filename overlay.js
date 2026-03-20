@@ -48,7 +48,7 @@ pipButton.addEventListener('click', async () => {
     sessionButton.onclick = async () => {
       try {
         if (window.vadEnabled) {
-          await window.disableVoiceActivation();
+          await window.disableVoiceActivation(true);
         } else if (window.enableVoiceActivation) {
           await window.enableVoiceActivation();
         }
