@@ -12,21 +12,46 @@ let vadMicStream = null;
 let shouldUploadScreenRecording = false;
 let timerInterval = null;
 let timeRemaining = 900;
+const UPLOAD_MAX_RETRIES = 3;
+const UPLOAD_RETRY_DELAY_MS = 2000;
 window.timeRemaining = timeRemaining;
 const transcription = document.getElementById('transcription');
 const ttsAudio = document.getElementById('ttsAudio');
 const backendBaseUrl = backendUrl();
 
-function setRecordButtonLabel(label) {
-    if (window.recordButton) {
-        window.recordButton.textContent = label;
-    }
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function setUploadStatus(message, isLoading = false) {
+function setUploadStatus(status, isLoading = false) {
+    const messageByStatus = {
+        uploading: 'Resultaten uploaden...',
+        success: 'Upload succesvol!',
+        error: 'Upload mislukt. Probeer later opnieuw.'
+    };
+    const message = messageByStatus[status] || status;
+
+    if (window.timerButton) {
+        if (status === 'uploading') {
+            window.timerButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Resultaten uploaden...';
+        } else {
+            window.timerButton.textContent = message;
+        }
+    }
+
     if (window.recordButton) {
-        window.recordButton.textContent = message;
         window.recordButton.disabled = isLoading;
+        if (status === 'success') {
+            const canContinue = window.timeRemaining > 0;
+            window.recordButton.style.display = canContinue ? '' : 'none';
+            window.recordButton.disabled = !canContinue;
+            window.recordButton.textContent = canContinue ? 'Toch verderdoen?' : 'Resultaten zijn succesvol ingediend.';
+        }
+        if (status === 'error') {
+            window.recordButton.style.display = '';
+            window.recordButton.disabled = false;
+            window.recordButton.textContent = 'Start onderzoek';
+        }
     }
 }
 
@@ -38,7 +63,9 @@ function startTimer() {
         const minutes = Math.floor(timeRemaining / 60);
         const seconds = timeRemaining % 60;
         const timerLabel = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-        setRecordButtonLabel(`Onderzoek vroegtijdig stoppen`);
+        if (window.recordButton) {
+            window.recordButton.textContent = 'Onderzoek vroegtijdig stoppen';
+        }
         if (window.timerButton) {
             window.timerButton.textContent = timerLabel;
         }
@@ -52,21 +79,38 @@ function startTimer() {
 function stopTimer() {
     if (timerInterval) clearInterval(timerInterval);
     timerInterval = null;
-    if (window.timerButton) {
-        window.timerButton.textContent = 'Voltooid';
-    }
 }
 
 async function uploadScreenRecording(blob) {
     const participantId = localStorage.getItem('participant_id');
-    const formData = new FormData();
-    formData.append('video', blob, `screen-recording-${new Date().toISOString().replace(/[:.]/g, '-')}.webm`);
-    formData.append('participant_id', participantId);
+    const fileName = `screen-recording-${new Date().toISOString().replace(/[:.]/g, '-')}.webm`;
+    let lastError = null;
 
-    await fetch(`${backendBaseUrl}/upload-video`, {
-        method: 'POST',
-        body: formData
-    });
+    for (let attempt = 1; attempt <= UPLOAD_MAX_RETRIES; attempt++) {
+        const formData = new FormData();
+        formData.append('video', blob, fileName);
+        formData.append('participant_id', participantId);
+
+        try {
+            const response = await fetch(`${backendBaseUrl}/upload-video`, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error(`Upload failed with status ${response.status}`);
+            }
+
+            return;
+        } catch (error) {
+            lastError = error;
+            if (attempt < UPLOAD_MAX_RETRIES) {
+                await delay(UPLOAD_RETRY_DELAY_MS);
+            }
+        }
+    }
+
+    throw lastError;
 }
 
 function startScreenRecording(sessionAudioStream) {
@@ -100,13 +144,13 @@ function startScreenRecording(sessionAudioStream) {
         screenChunks = [];
 
         try {
-            setUploadStatus('Resultaten worden geupload...', true);
+            setUploadStatus('uploading', true);
             await uploadScreenRecording(blob);
             console.log('Video uploaded successfully');
-            setUploadStatus('Resultaten zijn succesvol ingediend.', false);
+            setUploadStatus('success', false);
         } catch (error) {
             console.error('Error uploading video:', error);
-            setUploadStatus('Upload mislukt. Probeer opnieuw.', false);
+            setUploadStatus('error', false);
         } finally {
             shouldUploadScreenRecording = false;
         }
@@ -260,7 +304,6 @@ async function disableVoiceActivation(uploadScreenRecording = false) {
 
     stopAudioChunkRecording();
     stopSessionScreenRecording(uploadScreenRecording);
-    setRecordButtonLabel('Start onderzoek');
     return false;
 }
 
