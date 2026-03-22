@@ -26,25 +26,34 @@ pipButton.addEventListener('click', async () => {
     pipButton.disabled = true;
     pipButton.textContent = "Overlay Open";
 
+    pipWindow.document.head.innerHTML = `
+      <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    `;
     pipWindow.document.body.innerHTML = `
       <style>
         html, body { 
           height: 100%;
-          margin: 0; 
+          margin: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+          padding: 5px;
         }
         button {
-          width: 100%;
-          height: 100%;
-          font-size: 16px;
+          flex: 1;
+          font-size: 14px;
         }
       </style>
-      <button id="sessionButton">Start onderzoek</button>
+      <button id="sessionButton" class="btn btn-danger">Start onderzoek</button>
+      <button id="timerButton" disabled class="btn btn-light fw-bold fs-5">15:00</button>
     `;
 
 
 
     const sessionButton = pipWindow.document.getElementById('sessionButton');
+    const timerButton = pipWindow.document.getElementById('timerButton');
     window.recordButton = sessionButton;
+    window.timerButton = timerButton;
     sessionButton.onclick = async () => {
       try {
         if (window.vadEnabled) {
@@ -79,8 +88,8 @@ function takeScreenshot(video) {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
 
-  canvas.width = video.videoWidth/2;
-  canvas.height = video.videoHeight/2;
+  canvas.width = video.videoWidth / 2;
+  canvas.height = video.videoHeight / 2;
 
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
   screenshotBase64 = canvas.toDataURL('image/png');
