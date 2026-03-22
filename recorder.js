@@ -10,6 +10,8 @@ let vadEnabled = false;
 let vadController = null;
 let vadMicStream = null;
 let shouldUploadScreenRecording = false;
+let timerInterval = null;
+let timeRemaining = 900;
 const transcription = document.getElementById('transcription');
 const ttsAudio = document.getElementById('ttsAudio');
 const backendBaseUrl = backendUrl();
@@ -24,6 +26,31 @@ function setUploadStatus(message, isLoading = false) {
     if (window.recordButton) {
         window.recordButton.textContent = message;
         window.recordButton.disabled = isLoading;
+    }
+}
+
+function startTimer() {
+    if (timerInterval) clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+        timeRemaining--;
+        const minutes = Math.floor(timeRemaining / 60);
+        const seconds = timeRemaining % 60;
+        setRecordButtonLabel(`Onderzoek vroegtijdig stoppen`);
+        if (window.timerButton) {
+            window.timerButton.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        }
+        if (timeRemaining <= 0) {
+            clearInterval(timerInterval);
+            disableVoiceActivation(true);
+        }
+    }, 1000);
+}
+
+function stopTimer() {
+    if (timerInterval) clearInterval(timerInterval);
+    timerInterval = null;
+    if (window.timerButton) {
+        window.timerButton.textContent = 'Voltooid';
     }
 }
 
@@ -198,7 +225,7 @@ async function enableVoiceActivation() {
     vadEnabled = true;
     window.vadEnabled = vadEnabled;
     startScreenRecording(vadMicStream);
-    setRecordButtonLabel('Beëindig onderzoek');
+    startTimer();
     return true;
 }
 
@@ -209,6 +236,7 @@ async function disableVoiceActivation(uploadScreenRecording = false) {
 
     vadEnabled = false;
     window.vadEnabled = vadEnabled;
+    stopTimer();
 
     if (vadController) {
         await vadController.pause();
