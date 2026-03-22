@@ -1,7 +1,6 @@
 'use strict';
 
 const pipButton = document.getElementById('openPiP');
-let screenshotBase64 = null;
 let video = null;
 
 pipButton.addEventListener('click', async () => {
@@ -110,8 +109,7 @@ function takeScreenshot(video) {
   canvas.height = video.videoHeight / 2;
 
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-  screenshotBase64 = canvas.toDataURL('image/png');
-  return screenshotBase64;
+  return canvas.toDataURL('image/png');
 }
 
 window.captureCurrentScreenshot = () => {
