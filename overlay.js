@@ -60,8 +60,19 @@ pipButton.addEventListener('click', async () => {
     const timerButton = pipWindow.document.getElementById('timerButton');
     window.recordButton = sessionButton;
     window.timerButton = timerButton;
+
     sessionButton.onclick = async () => {
       try {
+        if (sessionButton.textContent === 'Toch verderdoen') {
+          sessionButton.textContent = 'Start onderzoek';
+          if (window.timerButton) {
+            const remaining = Number.isFinite(window.timeRemaining) ? Math.max(0, window.timeRemaining) : 0;
+            const minutes = Math.floor(remaining / 60);
+            const seconds = remaining % 60;
+            window.timerButton.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+          }
+          return;
+        }
         if (window.vadEnabled) {
           await window.disableVoiceActivation(true);
         } else if (window.enableVoiceActivation) {
