@@ -23,7 +23,7 @@ function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function setUploadStatus(status, isLoading = false) {
+function setUploadStatus(status) {
     const messageByStatus = {
         uploading: 'Resultaten uploaden...',
         success: 'Upload succesvol!',
@@ -40,12 +40,14 @@ function setUploadStatus(status, isLoading = false) {
     }
 
     if (window.recordButton) {
-        window.recordButton.disabled = isLoading;
+        window.recordButton.disabled = status === 'uploading';
         if (status === 'success') {
             const canContinue = window.timeRemaining > 0;
             window.recordButton.style.display = canContinue ? '' : 'none';
-            window.recordButton.disabled = !canContinue;
-            window.recordButton.textContent = canContinue ? 'Toch verderdoen?' : 'Resultaten zijn succesvol ingediend.';
+            if (canContinue) {
+                window.recordButton.disabled = false;
+                window.recordButton.textContent = 'Toch verderdoen?';
+            }
         }
         if (status === 'error') {
             window.recordButton.style.display = '';
@@ -70,7 +72,7 @@ function startTimer() {
             window.timerButton.textContent = timerLabel;
         }
         if (timeRemaining <= 0) {
-            clearInterval(timerInterval);
+            stopTimer();
             disableVoiceActivation(true);
         }
     }, 1000);
@@ -144,13 +146,13 @@ function startScreenRecording(sessionAudioStream) {
         screenChunks = [];
 
         try {
-            setUploadStatus('uploading', true);
+            setUploadStatus('uploading');
             await uploadScreenRecording(blob);
             console.log('Video uploaded successfully');
-            setUploadStatus('success', false);
+            setUploadStatus('success');
         } catch (error) {
             console.error('Error uploading video:', error);
-            setUploadStatus('error', false);
+            setUploadStatus('error');
         } finally {
             shouldUploadScreenRecording = false;
         }
