@@ -14,6 +14,7 @@ pipButton.addEventListener('click', async () => {
 
   } catch (err) {
     alert('Error: ' + err.message);
+    return;
   }
 
   if ('documentPictureInPicture' in window) {
@@ -25,6 +26,11 @@ pipButton.addEventListener('click', async () => {
 
     pipButton.disabled = true;
     pipButton.textContent = "Overlay Open";
+
+    const initialRemaining = Number.isFinite(window.timeRemaining) ? Math.max(0, window.timeRemaining) : 900;
+    const initialMinutes = Math.floor(initialRemaining / 60);
+    const initialSeconds = initialRemaining % 60;
+    const initialTimerLabel = `${initialMinutes}:${initialSeconds.toString().padStart(2, '0')}`;
 
     pipWindow.document.head.innerHTML = `
       <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -45,7 +51,7 @@ pipButton.addEventListener('click', async () => {
         }
       </style>
       <button id="sessionButton" class="btn btn-danger">Start onderzoek</button>
-      <button id="timerButton" disabled class="btn btn-light fw-bold fs-5">15:00</button>
+      <button id="timerButton" disabled class="btn btn-light fw-bold fs-5">${initialTimerLabel}</button>
     `;
 
 
@@ -76,6 +82,7 @@ pipButton.addEventListener('click', async () => {
         video.srcObject.getTracks().forEach(track => track.stop());
       }
       window.recordButton = null;
+      window.timerButton = null;
       window.screenshotBase64 = null;
     });
 

@@ -12,6 +12,7 @@ let vadMicStream = null;
 let shouldUploadScreenRecording = false;
 let timerInterval = null;
 let timeRemaining = 900;
+window.timeRemaining = timeRemaining;
 const transcription = document.getElementById('transcription');
 const ttsAudio = document.getElementById('ttsAudio');
 const backendBaseUrl = backendUrl();
@@ -33,11 +34,13 @@ function startTimer() {
     if (timerInterval) clearInterval(timerInterval);
     timerInterval = setInterval(() => {
         timeRemaining--;
+        window.timeRemaining = timeRemaining;
         const minutes = Math.floor(timeRemaining / 60);
         const seconds = timeRemaining % 60;
+        const timerLabel = `${minutes}:${seconds.toString().padStart(2, '0')}`;
         setRecordButtonLabel(`Onderzoek vroegtijdig stoppen`);
         if (window.timerButton) {
-            window.timerButton.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            window.timerButton.textContent = timerLabel;
         }
         if (timeRemaining <= 0) {
             clearInterval(timerInterval);
@@ -192,6 +195,11 @@ function stopSessionScreenRecording(uploadToDrive = false) {
 async function enableVoiceActivation() {
     if (vadEnabled) {
         return true;
+    }
+
+    const participantId = localStorage.getItem('participant_id');
+    if (!participantId) {
+        throw new Error('participant_id ontbreekt. Herstart via het toestemmingsformulier.');
     }
 
     if (!window.vad || !window.vad.MicVAD) {
