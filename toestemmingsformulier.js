@@ -6,6 +6,7 @@ const submitBtn = document.getElementById('submitBtn');
 
 let isDrawing = false;
 let hasSignature = false;
+let shouldResumeOnEnter = false;
 
 function resizeCanvas() {
     const ratio = Math.max(window.devicePixelRatio || 1, 1);
@@ -30,6 +31,7 @@ function getRelativePos(event) {
 
 function startDrawing(event) {
     event.preventDefault();
+    shouldResumeOnEnter = false;
     const { x, y } = getRelativePos(event);
     isDrawing = true;
     signatureCtx.beginPath();
@@ -52,6 +54,21 @@ function stopDrawing(event) {
     signatureCtx.closePath();
 }
 
+function handleMouseLeave(event) {
+    shouldResumeOnEnter = isDrawing && event.buttons === 1;
+    if (isDrawing) stopDrawing(event);
+}
+
+function handleMouseEnter(event) {
+    if (event.buttons !== 1) {
+        shouldResumeOnEnter = false;
+        return;
+    }
+    if (!shouldResumeOnEnter) return;
+    shouldResumeOnEnter = false;
+    startDrawing(event);
+}
+
 function clearSignature() {
     signatureCtx.clearRect(0, 0, signatureCanvas.width, signatureCanvas.height);
     hasSignature = false;
@@ -66,7 +83,8 @@ function validateForm() {
 signatureCanvas.addEventListener('mousedown', startDrawing);
 signatureCanvas.addEventListener('mousemove', draw);
 signatureCanvas.addEventListener('mouseup', stopDrawing);
-signatureCanvas.addEventListener('mouseleave', stopDrawing);
+signatureCanvas.addEventListener('mouseleave', handleMouseLeave);
+signatureCanvas.addEventListener('mouseenter', handleMouseEnter);
 signatureCanvas.addEventListener('touchstart', startDrawing, { passive: false });
 signatureCanvas.addEventListener('touchmove', draw, { passive: false });
 signatureCanvas.addEventListener('touchend', stopDrawing, { passive: false });
