@@ -9,15 +9,23 @@
     <link rel="icon" href="graduation-hat.png" type="image/png">
 </head>
 
-<body class="container py-5" style="max-width: 800px;">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <img src="uhasselt-liggend.png" alt="UHasselt Logo" class="img-fluid" style="max-width: 200px;">
-        <span id="serverStatus"></span>
+<body class="vh-100 overflow-hidden">
+    <div class="container-fluid h-100 d-flex flex-column pt-2 pb-3" style="max-width: 1100px;">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <img src="uhasselt-liggend.png" alt="UHasselt Logo" class="img-fluid" style="max-width: 180px;">
+            <span id="serverStatus"></span>
+        </div>
+
+        <h6 class="text-muted mb-2">Startpagina - Onderzoek: Masterproef Yves Geebelen</h6>
+            <div class="d-flex gap-2">
+                <a class="btn btn-outline-secondary" id="downloadDataset" href="Document 3 - Inlichtingenblad voor de deelnemer.pdf" download>
+                    <i class="bi bi-download me-2"></i>Download dataset
+                </a>
+                <button class="btn btn-danger" id="openPiP">Open overlay</button>
+            </div>
+        </div>
     </div>
-    <br>
-    <p>Welkom bij het experiment van de thesis van Yves Geebelen. </p>
-    <a class="btn btn-primary" id="downloadDataset" href="Document 3 - Inlichtingenblad voor de deelnemer.pdf" download><i class="bi bi-download me-2"></i>Download dataset</a>
-    <button class="btn btn-danger btn" id="openPiP">Open overlay</button>
+
     <div id="transcription"></div>
     <audio id="ttsAudio" controls style="display:none;"></audio>
     <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.wasm.min.js"></script>
