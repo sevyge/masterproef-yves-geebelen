@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, StreamingResponse
 from typing import Any
 from openai import AzureOpenAI
+from datetime import datetime
+import threading
 import tempfile
 import time
 import os
@@ -17,7 +19,7 @@ from services.google_drive_service import (
     get_or_create_participant_folder,
     get_next_participant_id,
     upload_to_google_drive,
-    upload_transcript_files
+    upload_transcript_files,
 )
 
 load_dotenv()
@@ -62,6 +64,23 @@ client = AzureOpenAI(
 
 # In-memory transcript log per participant
 transcript_log: dict[str, list[dict[str, Any]]] = {}
+
+# Per-participant lock to avoid concurrent transcript file uploads.
+participant_upload_locks: dict[str, Any] = {}
+participant_upload_locks_guard = threading.Lock()
+
+
+def get_participant_upload_lock(participant_id: str):
+    with participant_upload_locks_guard:
+        if participant_id not in participant_upload_locks:
+            participant_upload_locks[participant_id] = threading.Lock()
+        return participant_upload_locks[participant_id]
+
+
+def upload_transcript_files_with_lock(participant_id: str, participant_log: list):
+    lock = get_participant_upload_lock(participant_id)
+    with lock:
+        upload_transcript_files(participant_id, participant_log)
 
 
 @app.get("/")
@@ -194,6 +213,8 @@ def chat(
     screenshot: str = Form(None),
     previous_response_id: str = Form(None),
     participant_id: str = Form(...),
+    start_time: str = Form(None),
+    end_time: str = Form(None),
 ):
     logging.info(f"Received chat prompt: {transcript}")
 
@@ -243,6 +264,14 @@ def chat(
     labels = parsed.labels
     confidence_score = parsed.confidence_score
 
+    start_time_value = datetime.fromisoformat(
+        start_time.strip().replace("Z", "+00:00")
+    ).strftime("%Y-%m-%d %H:%M:%S")
+
+    end_time_value = datetime.fromisoformat(
+        end_time.strip().replace("Z", "+00:00")
+    ).strftime("%Y-%m-%d %H:%M:%S")
+
     logging.info(f"Chat response: {labels} (confidence: {confidence_score})")
 
     # Create an empty log for this participant if it doesn't exist yet
@@ -259,12 +288,13 @@ def chat(
             "transcript": transcript,
             "labels": labels_str,
             "confidence_score": confidence_score,
-            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "start_time": start_time_value,
+            "end_time": end_time_value,
         }
     )
 
     background_tasks.add_task(
-        upload_transcript_files,
+        upload_transcript_files_with_lock,
         participant_id,
         list(transcript_log[participant_id]),
     )

@@ -194,7 +194,8 @@ def upload_transcript_files(participant_id: str, participant_log: list):
             output,
             fieldnames=[
                 "entry_number",
-                "timestamp",
+                "start_time",
+                "end_time",
                 "transcript",
                 "labels",
                 "confidence_score",
@@ -218,7 +219,11 @@ def upload_transcript_files(participant_id: str, participant_log: list):
         # Create full transcript
         full_transcript_text = "\n".join(
             [
-                f"[{entry['timestamp']}] {entry['transcript']}"
+                (
+                    f"[{entry.get('start_time') or ''} -> "
+                    f"{entry.get('end_time') or ''}] "
+                    f"{entry['transcript']}"
+                )
                 for entry in participant_log
             ]
         )
