@@ -217,7 +217,7 @@ def upload_transcript_files(participant_id: str, participant_log: list):
         logging.info(f"Transcript CSV updated for participant {participant_id}")
 
         # Create full transcript
-        full_transcript_text = "\n".join(
+        full_transcript_text = "\n\n".join(
             [
                 (
                     f"[{entry.get('start_time') or ''} - "
@@ -229,11 +229,11 @@ def upload_transcript_files(participant_id: str, participant_log: list):
         )
         upload_to_google_drive(
             file_stream=full_transcript_text.encode("utf-8"),
-            filename=f"full_transcript_{participant_id}.txt",
-            mimetype="text/plain",
+            filename=f"full_transcript_{participant_id}.md",
+            mimetype="text/markdown",
             folder_id=participant_folder,
             overwrite=True,
         )
-        logging.info(f"Full transcript TXT updated for participant {participant_id}")
+        logging.info(f"Full transcript MD updated for participant {participant_id}")
     except Exception as e:
         logging.error(f"Error uploading transcript files: {e}")
