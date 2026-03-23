@@ -220,7 +220,7 @@ def upload_transcript_files(participant_id: str, participant_log: list):
         full_transcript_text = "\n".join(
             [
                 (
-                    f"[{entry.get('start_time') or ''} -> "
+                    f"[{entry.get('start_time') or ''} - "
                     f"{entry.get('end_time') or ''}] "
                     f"{entry['transcript']}"
                 )
