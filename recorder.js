@@ -4,6 +4,8 @@ let mediaRecorder;
 let audioChunks = [];
 let stream;
 let isRecording = false;
+let currentChunkStartTime = null;
+let currentChunkEndTime = null;
 let screenRecorder, screenChunks = [];
 let lastChatResult = null;
 let vadEnabled = false;
@@ -163,6 +165,8 @@ function startScreenRecording(sessionAudioStream) {
 
 async function startRecording(sharedStream) {
     isRecording = true;
+    currentChunkStartTime = new Date().toISOString();
+    currentChunkEndTime = null;
     stream = sharedStream || await navigator.mediaDevices.getUserMedia({ audio: true });
 
     mediaRecorder = new MediaRecorder(stream);
@@ -197,6 +201,8 @@ async function startRecording(sharedStream) {
                 if (participantId) {
                     formDataChat.append('participant_id', participantId);
                 }
+                formDataChat.append('start_time', currentChunkStartTime || new Date().toISOString());
+                formDataChat.append('end_time', currentChunkEndTime || new Date().toISOString());
                 const chatResponse = await fetch(`${backendBaseUrl}/chat`, {
                     method: 'POST',
                     body: formDataChat
@@ -227,6 +233,9 @@ async function startRecording(sharedStream) {
 
 function stopAudioChunkRecording() {
     if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        if (!currentChunkEndTime) {
+            currentChunkEndTime = new Date().toISOString();
+        }
         mediaRecorder.stop();
     }
 }
@@ -271,6 +280,7 @@ async function enableVoiceActivation() {
             if (!isRecording) {
                 return;
             }
+            currentChunkEndTime = new Date().toISOString();
             stopAudioChunkRecording();
         }
     });
