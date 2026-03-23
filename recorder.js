@@ -17,6 +17,7 @@ let timeRemaining = 900;
 const UPLOAD_MAX_RETRIES = 3;
 const UPLOAD_RETRY_DELAY_MS = 2000;
 window.timeRemaining = timeRemaining;
+window.skipNextSilenceEntry = false;
 const transcription = document.getElementById('transcription');
 const ttsAudio = document.getElementById('ttsAudio');
 const backendBaseUrl = backendUrl();
@@ -49,12 +50,14 @@ function setUploadStatus(status) {
             if (canContinue) {
                 window.recordButton.disabled = false;
                 window.recordButton.textContent = 'Toch verderdoen?';
+                window.recordButton.dataset.sessionState = 'resume';
             }
         }
         if (status === 'error') {
             window.recordButton.style.display = '';
             window.recordButton.disabled = false;
             window.recordButton.textContent = 'Start onderzoek';
+            window.recordButton.dataset.sessionState = 'start';
         }
     }
 }
@@ -69,6 +72,7 @@ function startTimer() {
         const timerLabel = `${minutes}:${seconds.toString().padStart(2, '0')}`;
         if (window.recordButton) {
             window.recordButton.textContent = 'Onderzoek vroegtijdig stoppen';
+            window.recordButton.dataset.sessionState = 'active';
         }
         if (window.timerButton) {
             window.timerButton.textContent = timerLabel;
@@ -173,6 +177,9 @@ async function startRecording(sharedStream) {
     audioChunks = [];
     mediaRecorder.ondataavailable = event => audioChunks.push(event.data);
     mediaRecorder.onstop = async () => {
+        const shouldSkipSilenceEntry = Boolean(window.skipNextSilenceEntry);
+        window.skipNextSilenceEntry = false;
+
         if (!sharedStream) {
             stream.getTracks().forEach(track => track.stop());
         }
@@ -200,6 +207,9 @@ async function startRecording(sharedStream) {
                 const participantId = localStorage.getItem('participant_id');
                 if (participantId) {
                     formDataChat.append('participant_id', participantId);
+                }
+                if (shouldSkipSilenceEntry) {
+                    formDataChat.append('skip_silence_entry', 'true');
                 }
                 formDataChat.append('start_time', currentChunkStartTime || new Date().toISOString());
                 formDataChat.append('end_time', currentChunkEndTime || new Date().toISOString());

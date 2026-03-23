@@ -62,15 +62,11 @@ pipButton.addEventListener('click', async () => {
 
     sessionButton.onclick = async () => {
       try {
-        if (sessionButton.textContent === 'Toch verderdoen') {
-          sessionButton.textContent = 'Start onderzoek';
-          if (window.timerButton) {
-            const remaining = Number.isFinite(window.timeRemaining) ? Math.max(0, window.timeRemaining) : 0;
-            const minutes = Math.floor(remaining / 60);
-            const seconds = remaining % 60;
-            window.timerButton.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-          }
-          return;
+        const isResumeAction = sessionButton.dataset.sessionState === 'resume';
+
+        if (isResumeAction) {
+          window.skipNextSilenceEntry = true;
+          sessionButton.dataset.sessionState = 'start';
         }
         if (window.vadEnabled) {
           await window.disableVoiceActivation(true);
