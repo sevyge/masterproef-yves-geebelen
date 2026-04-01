@@ -14,6 +14,8 @@ let vadMicStream = null;
 let shouldUploadScreenRecording = false;
 let timerInterval = null;
 let timeRemaining = 900;
+let silencePromptTimeout = null;
+let hasSpokenSilencePrompt = false;
 const UPLOAD_MAX_RETRIES = 3;
 const UPLOAD_RETRY_DELAY_MS = 2000;
 window.timeRemaining = timeRemaining;
@@ -24,6 +26,17 @@ const backendBaseUrl = backendUrl();
 
 function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function clearSilencePromptState() {
+    if (silencePromptTimeout) {
+        clearTimeout(silencePromptTimeout);
+        silencePromptTimeout = null;
+    }
+
+    if (window.silencePromptElement) {
+        window.silencePromptElement.textContent = '';
+    }
 }
 
 function setUploadStatus(status) {
@@ -281,6 +294,8 @@ async function enableVoiceActivation() {
             if (!vadEnabled || isRecording) {
                 return;
             }
+            clearSilencePromptState();
+            hasSpokenSilencePrompt = false;
             if (window.captureCurrentScreenshot) {
                 window.screenshotBase64 = window.captureCurrentScreenshot();
             }
@@ -292,6 +307,18 @@ async function enableVoiceActivation() {
             }
             currentChunkEndTime = new Date().toISOString();
             stopAudioChunkRecording();
+            clearSilencePromptState();
+            silencePromptTimeout = setTimeout(() => {
+                if (!vadEnabled || isRecording || hasSpokenSilencePrompt) {
+                    return;
+                }
+
+                hasSpokenSilencePrompt = true;
+                clearSilencePromptState();
+                if (window.silencePromptElement) {
+                    window.silencePromptElement.textContent = 'Zeg alstublieft waar u momenteel aan denkt';
+                }
+            }, 10000);
         }
     });
 
@@ -311,6 +338,8 @@ async function disableVoiceActivation(uploadScreenRecording = false) {
     vadEnabled = false;
     window.vadEnabled = vadEnabled;
     stopTimer();
+    clearSilencePromptState();
+    hasSpokenSilencePrompt = false;
 
     if (vadController) {
         await vadController.pause();
