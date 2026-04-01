@@ -19,7 +19,7 @@ pipButton.addEventListener('click', async () => {
   if ('documentPictureInPicture' in window) {
     const pipWindow = await window.documentPictureInPicture.requestWindow({
       width: 300,
-      height: 100,
+      height: 150,
       disallowReturnToOpener: true
     });
 
@@ -48,17 +48,27 @@ pipButton.addEventListener('click', async () => {
           flex: 1;
           font-size: 14px;
         }
+        #silencePrompt {
+          min-height: 2.5em;
+          font-size: 13px;
+          line-height: 1.2;
+          text-align: center;
+          white-space: normal;
+        }
       </style>
       <button id="sessionButton" class="btn btn-danger">Start onderzoek</button>
       <button id="timerButton" disabled class="btn btn-light fw-bold fs-5">${initialTimerLabel}</button>
+      <div id="silencePrompt" class="alert alert-secondary py-1 px-2 mb-0 d-flex align-items-center justify-content-center text-center"></div>
     `;
 
 
 
     const sessionButton = pipWindow.document.getElementById('sessionButton');
     const timerButton = pipWindow.document.getElementById('timerButton');
+    const silencePrompt = pipWindow.document.getElementById('silencePrompt');
     window.recordButton = sessionButton;
     window.timerButton = timerButton;
+    window.silencePromptElement = silencePrompt;
 
     sessionButton.onclick = async () => {
       try {
@@ -89,6 +99,7 @@ pipButton.addEventListener('click', async () => {
       }
       window.recordButton = null;
       window.timerButton = null;
+      window.silencePromptElement = null;
       window.screenshotBase64 = null;
     });
 
