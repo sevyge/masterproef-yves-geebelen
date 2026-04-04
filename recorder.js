@@ -50,6 +50,10 @@ function setUploadStatus(status) {
     if (window.timerButton) {
         if (status === 'uploading') {
             window.timerButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Resultaten uploaden...';
+            if (window.silencePromptElement) {
+                window.silencePromptElement.classList.remove('d-flex');
+                window.silencePromptElement.classList.add('d-none');
+            }
         } else {
             window.timerButton.textContent = message;
         }
@@ -64,6 +68,16 @@ function setUploadStatus(status) {
                 window.recordButton.disabled = false;
                 window.recordButton.textContent = 'Toch verderdoen?';
                 window.recordButton.dataset.sessionState = 'resume';
+            } else {
+                setTimeout(() => {
+                    if (window.documentPictureInPicture && window.documentPictureInPicture.window) {
+                        window.documentPictureInPicture.window.close();
+                    }
+                    window.location.href = "afsluiting.html";
+                }, 2500);
+            }
+            if (window.endExperimentButton) {
+                window.endExperimentButton.style.display = '';
             }
         }
         if (status === 'error') {
@@ -71,11 +85,21 @@ function setUploadStatus(status) {
             window.recordButton.disabled = false;
             window.recordButton.textContent = 'Start onderzoek';
             window.recordButton.dataset.sessionState = 'start';
+            if (window.endExperimentButton) {
+                window.endExperimentButton.style.display = 'none';
+            }
         }
     }
 }
 
 function startTimer() {
+    if (window.silencePromptElement) {
+        window.silencePromptElement.classList.remove('d-none');
+        window.silencePromptElement.classList.add('d-flex');
+    }
+    if (window.endExperimentButton) {
+        window.endExperimentButton.style.display = 'none';
+    }
     if (timerInterval) clearInterval(timerInterval);
     timerInterval = setInterval(() => {
         timeRemaining--;

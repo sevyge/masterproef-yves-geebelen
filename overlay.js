@@ -56,6 +56,7 @@ pipButton.addEventListener('click', async () => {
           white-space: normal;
         }
       </style>
+      <button id="endExperimentButton" class="btn btn-dark" style="display:none;">Sluit experiment af</button>
       <button id="sessionButton" class="btn btn-danger">Start onderzoek</button>
       <button id="timerButton" disabled class="btn btn-light fw-bold fs-5">${initialTimerLabel}</button>
       <div id="silencePrompt" class="alert alert-secondary py-1 px-2 mb-0 d-flex align-items-center justify-content-center text-center"></div>
@@ -64,11 +65,18 @@ pipButton.addEventListener('click', async () => {
 
 
     const sessionButton = pipWindow.document.getElementById('sessionButton');
+    const endExperimentButton = pipWindow.document.getElementById('endExperimentButton');
     const timerButton = pipWindow.document.getElementById('timerButton');
     const silencePrompt = pipWindow.document.getElementById('silencePrompt');
     window.recordButton = sessionButton;
+    window.endExperimentButton = endExperimentButton;
     window.timerButton = timerButton;
     window.silencePromptElement = silencePrompt;
+
+    endExperimentButton.onclick = () => {
+      window.location.href = "afsluiting.html";
+      pipWindow.close();
+    };
 
     sessionButton.onclick = async () => {
       try {
