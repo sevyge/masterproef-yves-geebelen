@@ -4,6 +4,7 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 from io import BytesIO
 import os
+import time
 import logging
 import csv
 import io
@@ -237,3 +238,40 @@ def upload_transcript_files(participant_id: str, participant_log: list):
         logging.info(f"Full transcript MD updated for participant {participant_id}")
     except Exception as e:
         logging.error(f"Error uploading transcript files: {e}")
+
+
+def upload_vragenlijst_csv(
+    participant_id: str, kennis: str, epa_project: str, status: str
+):
+    try:
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(
+            ["Participant ID", "Kennisniveau EPA", "Eerder EPA Project", "Huidige Status", "Indiendatum"]
+        )
+        writer.writerow(
+            [
+                participant_id,
+                kennis,
+                epa_project,
+                status,
+                time.strftime("%Y-%m-%d %H:%M:%S"),
+            ]
+        )
+
+        csv_content = output.getvalue()
+
+        participant_folder = get_or_create_participant_folder(participant_id)
+        timestamp = time.strftime("%Y%m%d-%H%M%S")
+        filename = f"vragenlijst_ant_{participant_id}_{timestamp}.csv"
+
+        upload_to_google_drive(
+            file_stream=csv_content.encode("utf-8"),
+            filename=filename,
+            mimetype="text/csv",
+            folder_id=participant_folder,
+        )
+        logging.info(f"Vragenlijst CSV uploaded for participant {participant_id}")
+    except Exception as e:
+        logging.error(f"Error uploading vragenlijst CSV: {e}")
+        raise
