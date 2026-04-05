@@ -135,7 +135,7 @@ document.getElementById('consentForm').addEventListener('submit', async function
         if (response.ok) {
             const data = await response.json();
             localStorage.setItem('participant_id', data.participant_id);
-            window.location.href = 'startpagina.html';
+            window.location.href = 'vragenlijst.html';
         } else {
             alert('Er is een fout opgetreden. Probeer het later opnieuw.');
             submitBtn.disabled = false;

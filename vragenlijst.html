@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="nl">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Masterproef Yves Geebelen</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link rel="icon" href="graduation-hat.png" type="image/png">
+    <style>
+        .form-check-input:checked {
+            background-color: #dc3545;
+            border-color: #dc3545;
+        }
+    </style>
+</head>
+
+<body class="vh-100 overflow-hidden">
+    <div class="container-fluid h-100 d-flex flex-column pt-2 pb-3" style="max-width: 1100px;">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <img src="uhasselt-liggend.png" alt="UHasselt Logo" class="img-fluid" style="max-width: 180px;">
+            <span id="serverStatus"></span>
+        </div>
+
+        <h6 class="text-muted mb-1">Vragenlijst - Onderzoek: Masterproef Yves Geebelen</h6>
+
+        <form id="vragenlijstForm" class="d-flex flex-column flex-grow-1 overflow-hidden">
+            <div class="flex-grow-1 overflow-auto mt-3 px-1 mb-3">
+
+                <div class="mb-3">
+                    <h5 class="fw-bold mb-3">1. Wat is uw huidig kennisniveau op het gebied van exploratieve procesdata-analyse?</h5>
+
+                    <div class="form-check d-flex align-items-center p-3 mb-2 bg-light rounded border position-relative">
+                        <input class="form-check-input m-0 me-3" type="radio" name="kennis" id="kennis_basis"
+                            value="Basisniveau" required>
+                        <label class="form-check-label w-100 stretched-link" for="kennis_basis">Basisniveau</label>
+                    </div>
+
+                    <div class="form-check d-flex align-items-center p-3 mb-2 bg-light rounded border position-relative">
+                        <input class="form-check-input m-0 me-3" type="radio" name="kennis" id="kennis_gevorderd"
+                            value="Gevorderd niveau" required>
+                        <label class="form-check-label w-100 stretched-link" for="kennis_gevorderd">Gevorderd niveau</label>
+                    </div>
+
+                    <div class="form-check d-flex align-items-center p-3 mb-2 bg-light rounded border position-relative">
+                        <input class="form-check-input m-0 me-3" type="radio" name="kennis" id="kennis_expert"
+                            value="Expert" required>
+                        <label class="form-check-label w-100 stretched-link" for="kennis_expert">Expert</label>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <h5 class="fw-bold mb-3">2. Heeft u eerder al een professioneel project uitgevoerd rond exploratieve
+                        procesdata-analyse (EPA)?</h5>
+
+                    <div class="form-check d-flex align-items-center p-3 mb-2 bg-light rounded border position-relative">
+                        <input class="form-check-input m-0 me-3" type="radio" name="epa_project"
+                            id="epa_ervaring_ja" value="Ja" required>
+                        <label class="form-check-label w-100 stretched-link" for="epa_ervaring_ja">Ja</label>
+                    </div>
+
+                    <div class="form-check d-flex align-items-center p-3 mb-2 bg-light rounded border position-relative">
+                        <input class="form-check-input m-0 me-3" type="radio" name="epa_project"
+                            id="epa_ervaring_nee" value="Nee" required>
+                        <label class="form-check-label w-100 stretched-link" for="epa_ervaring_nee">Nee</label>
+                    </div>
+                </div>
+
+                <div class="mb-2">
+                    <h5 class="fw-bold mb-3">3. Wat is uw huidige academische of professionele status?</h5>
+
+                    <div class="form-check d-flex align-items-center p-3 mb-2 bg-light rounded border position-relative">
+                        <input class="form-check-input m-0 me-3" type="radio" name="status" id="status_student"
+                            value="Student" required>
+                        <label class="form-check-label w-100 stretched-link" for="status_student">Student (Bachelor / Master)</label>
+                    </div>
+
+                    <div class="form-check d-flex align-items-center p-3 mb-2 bg-light rounded border position-relative">
+                        <input class="form-check-input m-0 me-3" type="radio" name="status" id="status_phd"
+                            value="Doctoraatstudent" required>
+                        <label class="form-check-label w-100 stretched-link" for="status_phd">Doctoraatstudent (PhD)</label>
+                    </div>
+
+                    <div class="form-check d-flex align-items-center p-3 mb-2 bg-light rounded border position-relative">
+                        <input class="form-check-input m-0 me-3" type="radio" name="status" id="status_prof"
+                            value="Professional" required>
+                        <label class="form-check-label w-100 stretched-link" for="status_prof">Professional (of werkend)</label>
+                    </div>
+
+                    <div class="form-check d-flex align-items-center p-3 mb-2 bg-light rounded border position-relative">
+                        <input class="form-check-input m-0 me-3" type="radio" name="status" id="status_andere"
+                            value="Andere" required>
+                        <label class="form-check-label w-100 stretched-link" for="status_andere">Andere</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-end mt-auto">
+                <button type="submit" class="btn btn-danger" id="submitBtn">
+                    <span class="spinner-border spinner-border-sm d-none" id="submitSpinner" role="status"
+                        aria-hidden="true"></span>
+                    <span id="submitText">Start experiment</span>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <div id="transcription"></div>
+    <audio id="ttsAudio" controls style="display:none;"></audio>
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.wasm.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.29/dist/bundle.min.js"></script>
+    <script src="backendURL.js"></script>
+    <script src="overlay.js"></script>
+    <script src="recorder.js"></script>
+    <script src="serverStatus.js"></script>
+    <script>
+        document.getElementById('vragenlijstForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const submitBtn = document.getElementById('submitBtn');
+            const submitSpinner = document.getElementById('submitSpinner');
+            const submitText = document.getElementById('submitText');
+
+            const participantId = localStorage.getItem('participant_id');
+            if (!participantId) {
+                alert('Fout: Geen participant ID gevonden. Ga terug naar de startpagina.');
+                return;
+            }
+
+            const formData = new FormData(this);
+            formData.append('participant_id', participantId);
+
+            submitBtn.disabled = true;
+            submitSpinner.classList.remove('d-none');
+            submitText.textContent = 'Even geduld...';
+
+            try {
+                const response = await fetch(`${backendUrl()}/vragenlijst`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    window.location.href = 'startpagina.html';
+                } else {
+                    alert('Er is een fout opgetreden. Probeer het later opnieuw.');
+                    submitBtn.disabled = false;
+                    submitSpinner.classList.add('d-none');
+                    submitText.textContent = 'Start experiment';
+                }
+            } catch (error) {
+                alert('Kan geen verbinding maken met de server.');
+                submitBtn.disabled = false;
+                submitSpinner.classList.add('d-none');
+                submitText.textContent = 'Start experiment';
+            }
+        });
+    </script>
+</body>
+
+</html>
