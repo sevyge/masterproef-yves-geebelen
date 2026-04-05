@@ -262,8 +262,7 @@ def upload_vragenlijst_csv(
         csv_content = output.getvalue()
 
         participant_folder = get_or_create_participant_folder(participant_id)
-        timestamp = time.strftime("%Y%m%d-%H%M%S")
-        filename = f"vragenlijst_ant_{participant_id}_{timestamp}.csv"
+        filename = f"vragenlijst_antwoorden_{participant_id}.csv"
 
         upload_to_google_drive(
             file_stream=csv_content.encode("utf-8"),
