@@ -18,6 +18,7 @@ from services.google_drive_service import (
     get_or_create_participant_folder,
     get_next_participant_id,
     upload_to_google_drive,
+    upload_vragenlijst_csv,
 )
 from services.transcript_service import (
     add_silence_segment_if_needed,
@@ -133,6 +134,28 @@ def consent(
 
     return {
         "message": f"Consent received for participant {participant_id}",
+        "participant_id": participant_id,
+    }
+
+
+# Vragenlijst endpoint
+@app.post("/vragenlijst")
+def submit_vragenlijst(
+    participant_id: str = Form(...),
+    kennis: str = Form(...),
+    epa_project: str = Form(...),
+    status: str = Form(...),
+):
+    logging.info(f"Received vragenlijst from participant: {participant_id}")
+
+    try:
+        upload_vragenlijst_csv(participant_id, kennis, epa_project, status)
+    except Exception as e:
+        logging.error(f"Error saving vragenlijst to Google Drive: {e}")
+        raise HTTPException(status_code=500, detail="Failed to save questionnaire.")
+
+    return {
+        "message": f"Vragenlijst saved for participant {participant_id}",
         "participant_id": participant_id,
     }
 
