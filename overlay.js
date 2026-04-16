@@ -19,17 +19,13 @@ pipButton.addEventListener('click', async () => {
   if ('documentPictureInPicture' in window) {
     const pipWindow = await window.documentPictureInPicture.requestWindow({
       width: 300,
-      height: 150,
+      height: 120,
       disallowReturnToOpener: true
     });
 
     pipButton.disabled = true;
     pipButton.textContent = "Overlay Open";
 
-    const initialRemaining = Number.isFinite(window.timeRemaining) ? Math.max(0, window.timeRemaining) : 900;
-    const initialMinutes = Math.floor(initialRemaining / 60);
-    const initialSeconds = initialRemaining % 60;
-    const initialTimerLabel = `${initialMinutes}:${initialSeconds.toString().padStart(2, '0')}`;
 
     pipWindow.document.head.innerHTML = `
       <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -58,7 +54,6 @@ pipButton.addEventListener('click', async () => {
       </style>
       <button id="endExperimentButton" class="btn btn-dark" style="display:none;">Sluit experiment af</button>
       <button id="sessionButton" class="btn btn-danger">Start onderzoek</button>
-      <button id="timerButton" disabled class="btn btn-light fw-bold fs-5">${initialTimerLabel}</button>
       <div id="silencePrompt" class="alert alert-secondary py-1 px-2 mb-0 d-flex align-items-center justify-content-center text-center"></div>
     `;
 
@@ -66,11 +61,9 @@ pipButton.addEventListener('click', async () => {
 
     const sessionButton = pipWindow.document.getElementById('sessionButton');
     const endExperimentButton = pipWindow.document.getElementById('endExperimentButton');
-    const timerButton = pipWindow.document.getElementById('timerButton');
     const silencePrompt = pipWindow.document.getElementById('silencePrompt');
     window.recordButton = sessionButton;
     window.endExperimentButton = endExperimentButton;
-    window.timerButton = timerButton;
     window.silencePromptElement = silencePrompt;
 
     endExperimentButton.onclick = () => {
@@ -106,7 +99,6 @@ pipButton.addEventListener('click', async () => {
         video.srcObject.getTracks().forEach(track => track.stop());
       }
       window.recordButton = null;
-      window.timerButton = null;
       window.silencePromptElement = null;
       window.screenshotBase64 = null;
     });
