@@ -12,13 +12,10 @@ let vadEnabled = false;
 let vadController = null;
 let vadMicStream = null;
 let shouldUploadScreenRecording = false;
-let timerInterval = null;
-let timeRemaining = 900;
 let silencePromptTimeout = null;
 let hasSpokenSilencePrompt = false;
 const UPLOAD_MAX_RETRIES = 3;
 const UPLOAD_RETRY_DELAY_MS = 2000;
-window.timeRemaining = timeRemaining;
 window.skipNextSilenceEntry = false;
 const transcription = document.getElementById('transcription');
 const ttsAudio = document.getElementById('ttsAudio');
@@ -40,47 +37,23 @@ function clearSilencePromptState() {
 }
 
 function setUploadStatus(status) {
-    const messageByStatus = {
-        uploading: 'Resultaten uploaden...',
-        success: 'Upload succesvol!',
-        error: 'Upload mislukt. Probeer later opnieuw.'
-    };
-    const message = messageByStatus[status] || status;
-
-    if (window.timerButton) {
+    if (window.recordButton) {
         if (status === 'uploading') {
-            window.timerButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Resultaten uploaden...';
+            window.recordButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Resultaten uploaden...';
+            window.recordButton.disabled = true;
             if (window.silencePromptElement) {
                 window.silencePromptElement.classList.remove('d-flex');
                 window.silencePromptElement.classList.add('d-none');
             }
-        } else {
-            window.timerButton.textContent = message;
-        }
-    }
-
-    if (window.recordButton) {
-        window.recordButton.disabled = status === 'uploading';
-        if (status === 'success') {
-            const canContinue = window.timeRemaining > 0;
-            window.recordButton.style.display = canContinue ? '' : 'none';
-            if (canContinue) {
-                window.recordButton.disabled = false;
-                window.recordButton.textContent = 'Toch verderdoen?';
-                window.recordButton.dataset.sessionState = 'resume';
-            } else {
-                setTimeout(() => {
-                    if (window.documentPictureInPicture && window.documentPictureInPicture.window) {
-                        window.documentPictureInPicture.window.close();
-                    }
-                    window.location.href = "afsluiting.html";
-                }, 2500);
-            }
+        } else if (status === 'success') {
+            window.recordButton.style.display = '';
+            window.recordButton.disabled = false;
+            window.recordButton.textContent = 'Toch verderdoen?';
+            window.recordButton.dataset.sessionState = 'resume';
             if (window.endExperimentButton) {
                 window.endExperimentButton.style.display = '';
             }
-        }
-        if (status === 'error') {
+        } else if (status === 'error') {
             window.recordButton.style.display = '';
             window.recordButton.disabled = false;
             window.recordButton.textContent = 'Start onderzoek';
@@ -92,39 +65,7 @@ function setUploadStatus(status) {
     }
 }
 
-function startTimer() {
-    if (window.silencePromptElement) {
-        window.silencePromptElement.classList.remove('d-none');
-        window.silencePromptElement.classList.add('d-flex');
-    }
-    if (window.endExperimentButton) {
-        window.endExperimentButton.style.display = 'none';
-    }
-    if (timerInterval) clearInterval(timerInterval);
-    timerInterval = setInterval(() => {
-        timeRemaining--;
-        window.timeRemaining = timeRemaining;
-        const minutes = Math.floor(timeRemaining / 60);
-        const seconds = timeRemaining % 60;
-        const timerLabel = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-        if (window.recordButton) {
-            window.recordButton.textContent = 'Onderzoek vroegtijdig stoppen';
-            window.recordButton.dataset.sessionState = 'active';
-        }
-        if (window.timerButton) {
-            window.timerButton.textContent = timerLabel;
-        }
-        if (timeRemaining <= 0) {
-            stopTimer();
-            disableVoiceActivation(true);
-        }
-    }, 1000);
-}
 
-function stopTimer() {
-    if (timerInterval) clearInterval(timerInterval);
-    timerInterval = null;
-}
 
 async function uploadScreenRecording(blob) {
     const participantId = localStorage.getItem('participant_id');
@@ -350,7 +291,17 @@ async function enableVoiceActivation() {
     vadEnabled = true;
     window.vadEnabled = vadEnabled;
     startScreenRecording(vadMicStream);
-    startTimer();
+    if (window.silencePromptElement) {
+        window.silencePromptElement.classList.remove('d-none');
+        window.silencePromptElement.classList.add('d-flex');
+    }
+    if (window.endExperimentButton) {
+        window.endExperimentButton.style.display = 'none';
+    }
+    if (window.recordButton) {
+        window.recordButton.textContent = 'Onderzoek vroegtijdig stoppen';
+        window.recordButton.dataset.sessionState = 'active';
+    }
     return true;
 }
 
@@ -361,7 +312,6 @@ async function disableVoiceActivation(uploadScreenRecording = false) {
 
     vadEnabled = false;
     window.vadEnabled = vadEnabled;
-    stopTimer();
     clearSilencePromptState();
     hasSpokenSilencePrompt = false;
 
