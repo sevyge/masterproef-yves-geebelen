@@ -12,7 +12,7 @@ pipButton.addEventListener('click', async () => {
     video.play();
 
   } catch (err) {
-    alert('Error: ' + err.message);
+    alert('Schermopname kon niet worden gestart. Controleer of je browser toestemming heeft gegeven.');
     return;
   }
 

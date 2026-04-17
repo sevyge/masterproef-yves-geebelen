@@ -1,3 +1,5 @@
+'use strict';
+
 const signatureCanvas = document.getElementById('signatureCanvas');
 const signatureCtx = signatureCanvas.getContext('2d');
 const clearSignatureBtn = document.getElementById('clearSignatureBtn');
@@ -121,7 +123,6 @@ document.getElementById('consentForm').addEventListener('submit', async function
     const payload = new FormData();
     payload.append('signature_data', signatureCanvas.toDataURL('image/png'));
 
-    // Show loading state
     submitBtn.disabled = true;
     submitSpinner.classList.remove('d-none');
     submitText.textContent = 'Even geduld...';
