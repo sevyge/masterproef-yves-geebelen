@@ -28,30 +28,36 @@
             <div class="flex-grow-1 overflow-auto mt-3 px-1 mb-3">
 
                 <div class="mb-3">
-                    <h5 class="fw-bold mb-3">1. Wat is uw huidig kennisniveau op het gebied van exploratieve procesdata-analyse?</h5>
+                    <h5 class="fw-bold mb-3">1. Hoeveel jaar praktische ervaring heeft u met procesdata-analyse? <span class="text-danger">*</span></h5>
 
                     <div class="form-check d-flex align-items-center p-3 mb-2 bg-light rounded border position-relative">
-                        <input class="form-check-input m-0 me-3" type="radio" name="kennis" id="kennis_basis"
-                            value="Basisniveau" required>
-                        <label class="form-check-label w-100 stretched-link" for="kennis_basis">Basisniveau</label>
+                        <input class="form-check-input m-0 me-3" type="radio" name="ervaring" id="ervaring_minder_1"
+                            value="Minder dan 1 jaar" required>
+                        <label class="form-check-label w-100 stretched-link" for="ervaring_minder_1">Minder dan 1 jaar</label>
                     </div>
 
                     <div class="form-check d-flex align-items-center p-3 mb-2 bg-light rounded border position-relative">
-                        <input class="form-check-input m-0 me-3" type="radio" name="kennis" id="kennis_gevorderd"
-                            value="Gevorderd niveau" required>
-                        <label class="form-check-label w-100 stretched-link" for="kennis_gevorderd">Gevorderd niveau</label>
+                        <input class="form-check-input m-0 me-3" type="radio" name="ervaring" id="ervaring_1_tot_3"
+                            value="1 tot 3 jaar" required>
+                        <label class="form-check-label w-100 stretched-link" for="ervaring_1_tot_3">1 tot 3 jaar</label>
                     </div>
 
                     <div class="form-check d-flex align-items-center p-3 mb-2 bg-light rounded border position-relative">
-                        <input class="form-check-input m-0 me-3" type="radio" name="kennis" id="kennis_expert"
-                            value="Expert" required>
-                        <label class="form-check-label w-100 stretched-link" for="kennis_expert">Expert</label>
+                        <input class="form-check-input m-0 me-3" type="radio" name="ervaring" id="ervaring_3_tot_5"
+                            value="3 tot 5 jaar" required>
+                        <label class="form-check-label w-100 stretched-link" for="ervaring_3_tot_5">3 tot 5 jaar</label>
+                    </div>
+
+                    <div class="form-check d-flex align-items-center p-3 mb-2 bg-light rounded border position-relative">
+                        <input class="form-check-input m-0 me-3" type="radio" name="ervaring" id="ervaring_meer_5"
+                            value="Meer dan 5 jaar" required>
+                        <label class="form-check-label w-100 stretched-link" for="ervaring_meer_5">Meer dan 5 jaar</label>
                     </div>
                 </div>
 
                 <div class="mb-3">
                     <h5 class="fw-bold mb-3">2. Heeft u eerder al een professioneel project uitgevoerd rond exploratieve
-                        procesdata-analyse (EPA)?</h5>
+                        procesdata-analyse (EPA)? <span class="text-danger">*</span></h5>
 
                     <div class="form-check d-flex align-items-center p-3 mb-2 bg-light rounded border position-relative">
                         <input class="form-check-input m-0 me-3" type="radio" name="epa_project"
@@ -66,31 +72,79 @@
                     </div>
                 </div>
 
+                <div class="mb-3">
+                    <h5 class="fw-bold mb-3">3. Welke van de onderstaande process mining tools heeft u al ooit gebruikt? (Meerdere antwoorden mogelijk) <span class="text-danger">*</span></h5>
+
+                    <div class="form-check d-flex align-items-center p-3 mb-2 bg-light rounded border position-relative">
+                        <input class="form-check-input m-0 me-3" type="checkbox" name="tools"
+                            id="tool_disco" value="Fluxicon Disco">
+                        <label class="form-check-label w-100 stretched-link" for="tool_disco">Fluxicon Disco</label>
+                    </div>
+
+                    <div class="form-check d-flex align-items-center p-3 mb-2 bg-light rounded border position-relative">
+                        <input class="form-check-input m-0 me-3" type="checkbox" name="tools"
+                            id="tool_bupar" value="bupaR">
+                        <label class="form-check-label w-100 stretched-link" for="tool_bupar">bupaR (R)</label>
+                    </div>
+
+                    <div class="form-check d-flex align-items-center p-3 mb-2 bg-light rounded border position-relative">
+                        <input class="form-check-input m-0 me-3" type="checkbox" name="tools"
+                            id="tool_celonis" value="Celonis">
+                        <label class="form-check-label w-100 stretched-link" for="tool_celonis">Celonis</label>
+                    </div>
+
+                    <div class="form-check d-flex align-items-center p-3 mb-2 bg-light rounded border position-relative">
+                        <input class="form-check-input m-0 me-3" type="checkbox" name="tools"
+                            id="tool_prom" value="ProM">
+                        <label class="form-check-label w-100 stretched-link" for="tool_prom">ProM</label>
+                    </div>
+                    
+                    <div class="form-check d-flex align-items-center p-3 mb-2 bg-light rounded border position-relative">
+                        <input class="form-check-input m-0 me-3" type="checkbox" name="tools"
+                            id="tool_pm4py" value="pm4py">
+                        <label class="form-check-label w-100 stretched-link" for="tool_pm4py">pm4py (Python)</label>
+                    </div>
+
+                    <div class="d-flex align-items-center p-3 mb-2 bg-light rounded border">
+                        <input class="form-check-input m-0 me-3" type="checkbox" name="tools"
+                            id="tool_andere" value="Andere">
+                        <label class="form-check-label me-2 text-nowrap" for="tool_andere">Andere:</label>
+                        <input type="text" class="form-control form-control-sm bg-white" id="tool_andere_input" placeholder="Vul in...">
+                    </div>
+
+                    <div class="form-check d-flex align-items-center p-3 mb-2 bg-light rounded border position-relative">
+                        <input class="form-check-input m-0 me-3" type="checkbox" name="tools"
+                            id="tool_geen" value="Geen van bovenstaande">
+                        <label class="form-check-label w-100 stretched-link" for="tool_geen">Geen van bovenstaande</label>
+                    </div>
+                </div>
+
                 <div class="mb-2">
-                    <h5 class="fw-bold mb-3">3. Wat is uw huidige academische of professionele status?</h5>
+                    <h5 class="fw-bold mb-3">4. Wat is uw huidige rol? <span class="text-danger">*</span></h5>
 
                     <div class="form-check d-flex align-items-center p-3 mb-2 bg-light rounded border position-relative">
-                        <input class="form-check-input m-0 me-3" type="radio" name="status" id="status_student"
+                        <input class="form-check-input m-0 me-3" type="radio" name="rol" id="rol_student"
                             value="Student" required>
-                        <label class="form-check-label w-100 stretched-link" for="status_student">Student (Bachelor / Master)</label>
+                        <label class="form-check-label w-100 stretched-link" for="rol_student">Student (Bachelor / Master)</label>
                     </div>
 
                     <div class="form-check d-flex align-items-center p-3 mb-2 bg-light rounded border position-relative">
-                        <input class="form-check-input m-0 me-3" type="radio" name="status" id="status_phd"
+                        <input class="form-check-input m-0 me-3" type="radio" name="rol" id="rol_phd"
                             value="Doctoraatstudent" required>
-                        <label class="form-check-label w-100 stretched-link" for="status_phd">Doctoraatstudent (PhD)</label>
+                        <label class="form-check-label w-100 stretched-link" for="rol_phd">Doctoraatstudent (PhD)</label>
                     </div>
 
                     <div class="form-check d-flex align-items-center p-3 mb-2 bg-light rounded border position-relative">
-                        <input class="form-check-input m-0 me-3" type="radio" name="status" id="status_prof"
-                            value="Professional" required>
-                        <label class="form-check-label w-100 stretched-link" for="status_prof">Professional (of werkend)</label>
+                        <input class="form-check-input m-0 me-3" type="radio" name="rol" id="rol_werkend"
+                            value="Werkend" required>
+                        <label class="form-check-label w-100 stretched-link" for="rol_werkend">Werkend</label>
                     </div>
 
-                    <div class="form-check d-flex align-items-center p-3 mb-2 bg-light rounded border position-relative">
-                        <input class="form-check-input m-0 me-3" type="radio" name="status" id="status_andere"
+                    <div class="d-flex align-items-center p-3 mb-2 bg-light rounded border">
+                        <input class="form-check-input m-0 me-3" type="radio" name="rol" id="rol_andere"
                             value="Andere" required>
-                        <label class="form-check-label w-100 stretched-link" for="status_andere">Andere</label>
+                        <label class="form-check-label me-2 text-nowrap" for="rol_andere">Andere:</label>
+                        <input type="text" class="form-control form-control-sm bg-white" id="rol_andere_input" placeholder="Vul in...">
                     </div>
                 </div>
             </div>
@@ -114,8 +168,30 @@
     <script src="recorder.js"></script>
     <script src="serverStatus.js"></script>
     <script>
+        ['tool', 'rol'].forEach(prefix => {
+            const textInput = document.getElementById(`${prefix}_andere_input`);
+            const targetBox = document.getElementById(`${prefix}_andere`);
+            
+            if (textInput && targetBox) {
+                textInput.addEventListener('input', (e) => {
+                    targetBox.checked = true;
+                    targetBox.value = e.target.value.trim() !== '' ? `Andere: ${e.target.value}` : 'Andere';
+                });
+                
+                textInput.addEventListener('click', () => {
+                    targetBox.checked = true;
+                });
+            }
+        });
+
         document.getElementById('vragenlijstForm').addEventListener('submit', async function (e) {
             e.preventDefault();
+
+            const selectedTools = document.querySelectorAll('input[name="tools"]:checked');
+            if (selectedTools.length === 0) {
+                alert('Gelieve minstens één optie bij vraag 3 (Tools) te selecteren. Kies "Geen van bovenstaande" als u nog geen tool gebruikt heeft.');
+                return;
+            }
 
             const submitBtn = document.getElementById('submitBtn');
             const submitSpinner = document.getElementById('submitSpinner');
