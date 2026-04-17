@@ -51,6 +51,15 @@ pipButton.addEventListener('click', async () => {
           text-align: center;
           white-space: normal;
         }
+        @keyframes pulseAlert {
+          0% { background-color: #ffc107; box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.7); border-color: #ffc107; }
+          50% { background-color: #fff3cd; box-shadow: 0 0 0 8px rgba(255, 193, 7, 0); border-color: #ffc107; }
+          100% { background-color: #ffc107; box-shadow: 0 0 0 0 rgba(255, 193, 7, 0); border-color: #ffc107; }
+        }
+        .pulsing-alert {
+          animation: pulseAlert 1.5s infinite;
+          border: 2px solid #ffc107 !important;
+        }
       </style>
       <button id="endExperimentButton" class="btn btn-dark" style="display:none;">Sluit experiment af</button>
       <button id="sessionButton" class="btn btn-danger">Start onderzoek</button>

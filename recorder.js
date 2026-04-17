@@ -32,7 +32,9 @@ function clearSilencePromptState() {
     }
 
     if (window.silencePromptElement) {
-        window.silencePromptElement.textContent = '';
+        window.silencePromptElement.innerHTML = '';
+        window.silencePromptElement.classList.remove('alert-warning', 'pulsing-alert');
+        window.silencePromptElement.classList.add('alert-secondary');
     }
 }
 
@@ -279,9 +281,10 @@ async function enableVoiceActivation() {
                 }
 
                 hasSpokenSilencePrompt = true;
-                clearSilencePromptState();
                 if (window.silencePromptElement) {
-                    window.silencePromptElement.textContent = 'Zeg alstublieft waar u momenteel aan denkt';
+                    window.silencePromptElement.classList.remove('alert-secondary');
+                    window.silencePromptElement.classList.add('alert-warning', 'pulsing-alert');
+                    window.silencePromptElement.innerHTML = '🎤 <strong>Vergeet niet hardop te denken!</strong>';
                 }
             }, 10000);
         }
