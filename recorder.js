@@ -173,7 +173,7 @@ async function startRecording(sharedStream) {
                 body: formData
             });
             const result = await response.json();
-            transcription.textContent = "Prompt: " + result.transcription;
+            if (transcription) transcription.textContent = "Prompt: " + result.transcription;
 
             if (result.transcription) {
                 const formDataChat = new FormData();
@@ -199,23 +199,11 @@ async function startRecording(sharedStream) {
                 });
                 const chatResult = await chatResponse.json();
                 lastChatResult = chatResult;
-                transcription.textContent += '\nChat model response: ' + chatResult.response;
+                if (transcription) transcription.textContent += '\nChat model response: ' + chatResult.response;
 
-                // if (chatResult.response) {
-                //     const formDataTTS = new FormData();
-                //     formDataTTS.append('text', chatResult.response);
-                //     const ttsResponse = await fetch(`${backendBaseUrl}/tts-stream`, {
-                //         method: 'POST',
-                //         body: formDataTTS
-                //     });
-                //     const ttsBlob = await ttsResponse.blob();
-                //     const ttsObjectUrl = URL.createObjectURL(ttsBlob);
-                //     ttsAudio.src = ttsObjectUrl;
-                //     ttsAudio.play();
-                // }
             }
         } catch (error) {
-            transcription.textContent = 'Error: Server reageert niet.';
+            if (transcription) transcription.textContent = 'Error: Server reageert niet.';
         }
     };
     mediaRecorder.start();
