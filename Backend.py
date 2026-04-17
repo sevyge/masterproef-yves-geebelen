@@ -142,14 +142,15 @@ def consent(
 @app.post("/vragenlijst")
 def submit_vragenlijst(
     participant_id: str = Form(...),
-    kennis: str = Form(...),
-    epa_project: str = Form(...),
-    status: str = Form(...),
+    ervaring: str = Form(default="Niet gedefinieerd"),
+    epa_project: str = Form(default="Niet gedefinieerd"),
+    tools: list[str] = Form(default=[]),
+    rol: str = Form(default="Niet gedefinieerd"),
 ):
     logging.info(f"Received vragenlijst from participant: {participant_id}")
 
     try:
-        upload_vragenlijst_csv(participant_id, kennis, epa_project, status)
+        upload_vragenlijst_csv(participant_id, ervaring, epa_project, tools, rol)
     except Exception as e:
         logging.error(f"Error saving vragenlijst to Google Drive: {e}")
         raise HTTPException(status_code=500, detail="Failed to save questionnaire.")

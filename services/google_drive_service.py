@@ -241,20 +241,22 @@ def upload_transcript_files(participant_id: str, participant_log: list):
 
 
 def upload_vragenlijst_csv(
-    participant_id: str, kennis: str, epa_project: str, status: str
+    participant_id: str, ervaring: str, epa_project: str, tools: list[str], rol: str
 ):
     try:
         output = io.StringIO()
         writer = csv.writer(output)
         writer.writerow(
-            ["Participant ID", "Kennisniveau EPA", "Eerder EPA Project", "Huidige Status", "Indiendatum"]
+            ["Participant ID", "Praktijkervaring", "Eerder EPA Project", "Gebruikte Tools", "Huidige Rol", "Indiendatum"]
         )
+        tools_str = ", ".join(tools) if tools else "Geen tools geselecteerd"
         writer.writerow(
             [
                 participant_id,
-                kennis,
+                ervaring,
                 epa_project,
-                status,
+                tools_str,
+                rol,
                 time.strftime("%Y-%m-%d %H:%M:%S"),
             ]
         )
