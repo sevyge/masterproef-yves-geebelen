@@ -29,7 +29,8 @@ from services.transcript_service import (
 )
 from prompts.system_prompt import SYSTEM_PROMPT
 
-load_dotenv()
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(BASE_DIR, ".env"))
 
 # Logging
 logging.basicConfig(
@@ -104,7 +105,7 @@ def consent(
 
         participant_folder = get_or_create_participant_folder(participant_id)
 
-        template_path = "toestemmingsformulier.pdf"
+        template_path = os.path.join(BASE_DIR, "toestemmingsformulier.pdf")
         if not os.path.exists(template_path):
             raise FileNotFoundError(f"Consent template not found at {template_path}")
         signature_png = decode_signature_data(signature_data)
