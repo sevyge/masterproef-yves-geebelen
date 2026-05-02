@@ -14,11 +14,13 @@ from utils.signature_utils import (
     decode_signature_data,
     stamp_signature_on_page_two,
 )
+import base64
 from services.google_drive_service import (
     get_or_create_participant_folder,
     get_next_participant_id,
     upload_to_google_drive,
     upload_vragenlijst_csv,
+    upload_screenshot,
 )
 from services.transcript_service import (
     add_silence_segment_if_needed,
@@ -294,15 +296,35 @@ def chat(
     entry_number = len(transcript_log[participant_id]) + 1
     labels_str = ", ".join(labels) if labels else "None"
 
+    # Upload screenshot to google drive
+    screenshot_filename = ""
+    if screenshot:
+        screenshot_filename = f"screenshot_participant_{participant_id}_entry_{entry_number}.jpg"
+        
+        if "," in screenshot:
+            _, b64_data = screenshot.split(",", 1)
+        else:
+            b64_data = screenshot
+            
+        screenshot_bytes = base64.b64decode(b64_data)
+        
+        background_tasks.add_task(
+            upload_screenshot,
+            participant_id,
+            screenshot_bytes,
+            screenshot_filename
+        )
+
     # Add the transcript with the knowledge structure classification to the log
     transcript_log[participant_id].append(
         {
             "entry_number": entry_number,
-            "transcript": transcript,
-            "labels": labels_str,
-            "confidence_score": confidence_score,
             "start_time": start_time_value,
             "end_time": end_time_value,
+            "transcript": transcript,
+            "screenshot_filename": screenshot_filename,
+            "labels": labels_str,
+            "confidence_score": confidence_score,
         }
     )
 

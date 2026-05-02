@@ -73,6 +73,47 @@ def get_or_create_participant_folder(participant_id: str) -> str:
     return folder["id"]
 
 
+def get_or_create_subfolder(parent_id: str, folder_name: str) -> str:
+    """Return the Drive folder ID for a subfolder, creating it if needed."""
+    service = get_drive_service()
+    if service is None:
+        raise FileNotFoundError("Service account file not found.")
+
+    query = (
+        f"name = '{folder_name}' and '{parent_id}' in parents "
+        f"and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
+    )
+
+    results = (
+        service.files()
+        .list(
+            q=query,
+            fields="files(id)",
+            supportsAllDrives=True,
+            includeItemsFromAllDrives=True,
+        )
+        .execute()
+    )
+    files = results.get("files", [])
+    if files:
+        return files[0]["id"]
+
+    # Create the folder
+    folder_metadata = {
+        "name": folder_name,
+        "mimeType": "application/vnd.google-apps.folder",
+        "parents": [parent_id],
+    }
+
+    folder = (
+        service.files()
+        .create(body=folder_metadata, fields="id", supportsAllDrives=True)
+        .execute()
+    )
+    logging.info(f"Created Drive subfolder '{folder_name}' with ID: {folder['id']}")
+    return folder["id"]
+
+
 def get_next_participant_id() -> str:
     """Determine the next participant ID by counting existing folders."""
     service = get_drive_service()
@@ -198,10 +239,12 @@ def upload_transcript_files(participant_id: str, participant_log: list):
                 "start_time",
                 "end_time",
                 "transcript",
+                "screenshot_filename",
                 "labels",
                 "confidence_score",
             ],
             delimiter=";",
+            quoting=csv.QUOTE_ALL,
         )
         writer.writeheader()
         writer.writerows(participant_log)
@@ -276,3 +319,18 @@ def upload_vragenlijst_csv(
     except Exception as e:
         logging.error(f"Error uploading vragenlijst CSV: {e}")
         raise
+
+def upload_screenshot(participant_id: str, screenshot_bytes: bytes, filename: str):
+    try:
+        participant_folder = get_or_create_participant_folder(participant_id)
+        screenshot_folder = get_or_create_subfolder(participant_folder, "Screenshots")
+        upload_to_google_drive(
+            file_stream=screenshot_bytes,
+            filename=filename,
+            mimetype="image/jpeg",
+            folder_id=screenshot_folder,
+            overwrite=True
+        )
+        logging.info(f"Uploaded screenshot {filename} to Google Drive.")
+    except Exception as e:
+        logging.error(f"Failed to upload screenshot {filename}: {e}")
