@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="nl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Masterproef Yves Geebelen</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link rel="icon" href="../assets/images/graduation-hat.png" type="image/png">
+</head>
+
+<body class="vh-100 overflow-hidden">
+    <div class="container-fluid h-100 d-flex flex-column pt-2 pb-1" style="max-width: 1100px;">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+            <img src="../assets/images/uhasselt-liggend.png" alt="UHasselt Logo" class="img-fluid" style="max-width: 180px;">
+            <span id="serverStatus"></span>
+        </div>
+
+        <h6 class="text-muted mb-1">Startpagina - Onderzoek: Masterproef Yves Geebelen</h6>
+
+        <div class="card bg-light mb-1 overflow-auto" style="min-height: 0;">
+            <div class="card-body px-3 py-2">
+                <h6 class="fw-bold mb-2">
+                    <i class="bi bi-clipboard-data text-danger me-2"></i>Jouw Opdracht: Analyseer het
+                    Verkeersboete-proces
+                </h6>
+
+                <h6 class="fw-bold mt-2"><i class="bi bi-briefcase-fill text-primary me-2"></i>De Case</h6>
+                <p class="text-secondary mb-2">
+                    Je treedt op als data-analist voor de lokale politie. De <em>"Road Traffic Fine Management Process"</em> dataset bevat de volledige afhandeling van verkeersboetes, van het aanmaken van de boete tot de uiteindelijke betaling of incasso. De opdrachtgever vraagt jou om een <strong>exploratieve procesdata-analyse (EPA)</strong> uit te voeren, omdat men vermoedt dat de doorlooptijden te lang zijn.
+                </p>
+
+                <h6 class="fw-bold"><i class="bi bi-crosshair text-warning me-2"></i>Onderzoeksvragen</h6>
+                <ul class="text-secondary mb-2">
+                    <li class="mb-1">Wat is de meest efficiënte route (het <em>happy path</em>)?</li>
+                    <li class="mb-1">Waar en waarom ontstaan de grootste <strong>bottlenecks</strong>?</li>
+                    <li>Voldoet de politie aan alle tijdslimieten? (Wettelijk: <strong>90 dagen</strong> voor verzending, en <strong>60 dagen</strong> tijd voor beroep).</li>
+                </ul>
+
+                <hr class="my-2">
+
+                <div class="row g-2">
+                    <div class="col-md-6 pe-md-4 border-end">
+                        <h6 class="fw-bold"><i class="bi bi-book-half text-success me-2"></i>Begrippenlijst</h6>
+                        <ul class="text-secondary small mb-0">
+                            <li class="mb-1"><strong>Prefecture vs. Judge:</strong> Twee overheidsorganen voor beroep (appeal). De Prefecture-route is laagdrempeliger.</li>
+                            <li class="mb-1"><strong>Add Penalty:</strong> Bij laattijdige betaling, of bij een afgewezen beroep, wordt het boetebedrag doorgaans verhoogd.</li>
+                            <li><strong>Send for Credit Collection:</strong> De overdracht aan een incassobureau (vaak het eindstation).</li>
+                        </ul>
+                    </div>
+
+                    <div class="col-md-6 ps-md-4">
+                        <h6 class="fw-bold"><i class="bi bi-list-ol text-info me-2"></i>Stappenplan</h6>
+                        <ol class="text-secondary small mb-0">
+                            <li class="mb-1">Download de dataset (.xes) via de knop hieronder.</li>
+                            <li class="mb-1">Klik op <strong>'Start experiment & overlay'</strong>. Er verschijnt een kleine overlay op je scherm.</li>
+                            <li class="mb-1">Importeer de dataset in je Process Mining tool.</li>
+                            <li class="mb-1">Klik op <strong>'Start'</strong> in de overlay om de opname te starten.<br><em>(Tip: Begin direct met hardop praten als je de data inlaadt als 'warm-up').</em></li>
+                            <li>Klaar? Sluit af via de rode Stop-knop in de overlay.</li>
+                        </ol>
+                    </div>
+                </div>
+
+                <div class="alert border-danger bg-danger-subtle text-danger mt-2 mb-0 py-2 px-3" role="alert">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-mic-fill me-3 fs-3"></i>
+                        <div>
+                            <strong>Cruciaal voor het experiment:</strong> Spreek tijdens je volledige analyse duidelijk en <strong>hardop ('think-aloud')</strong> uit wat je doet, wat je op het scherm ziet, en vooral <em>waarom</em> je bepaalde keuzes maakt.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex gap-3 mt-2 mb-1">
+            <a class="btn btn-outline-secondary px-4 py-2" id="downloadDataset"
+                href="../assets/data/Road_Traffic_Fine_Management_Process.xes" download>
+                <i class="bi bi-download me-2"></i>Download dataset
+            </a>
+            <button class="btn btn-danger px-4 py-2 fw-bold" id="openPiP">
+                <i class="bi bi-window-stack me-2"></i>Start experiment & overlay
+            </button>
+        </div>
+    </div>
+
+
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.wasm.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.29/dist/bundle.min.js"></script>
+    <script src="../js/backendURL.js"></script>
+    <script src="../js/overlay.js"></script>
+    <script src="../js/recorder.js"></script>
+    <script src="../js/serverStatus.js"></script>
+</body>
+
+</html>
