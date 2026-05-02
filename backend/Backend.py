@@ -105,7 +105,7 @@ def consent(
 
         participant_folder = get_or_create_participant_folder(participant_id)
 
-        template_path = os.path.join(BASE_DIR, "toestemmingsformulier.pdf")
+        template_path = os.path.join(BASE_DIR, "Document 5 - toestemmingsformulier voor de deelnemer.pdf")
         if not os.path.exists(template_path):
             raise FileNotFoundError(f"Consent template not found at {template_path}")
         signature_png = decode_signature_data(signature_data)
