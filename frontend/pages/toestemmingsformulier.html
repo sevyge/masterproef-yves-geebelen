@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="nl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Masterproef Yves Geebelen</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="icon" href="../assets/images/graduation-hat.png" type="image/png">
+</head>
+
+<body class="vh-100 overflow-hidden">
+    <div class="container-fluid h-100 d-flex flex-column pt-2 pb-3" style="max-width: 1100px;">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <a href="../index.html" aria-label="Ga naar homepagina">
+                <img src="../assets/images/uhasselt-liggend.png" alt="UHasselt Logo" class="img-fluid" style="max-width: 180px;">
+            </a>
+            <span id="serverStatus"></span>
+        </div>
+
+        <h6 class="text-muted mb-1">Toestemmingsformulier - Onderzoek: Masterproef Yves Geebelen</h6>
+
+        <div class="row g-2 flex-grow-1 overflow-hidden flex-nowrap">
+            <div class="col-7 h-100 d-flex flex-column">
+                <div class="card flex-grow-1 overflow-hidden mb-2">
+                    <div class="card-body p-0 h-100">
+                        <iframe src="../assets/documents/Document 5 - toestemmingsformulier voor de deelnemer.pdf" class="w-100 h-100 border-0">
+                            Uw browser ondersteunt geen PDF-weergave. U kunt het <a href="../assets/documents/Document 5 - toestemmingsformulier voor de deelnemer.pdf" download>toestemmingsformulier hier downloaden</a>.
+                        </iframe>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-5 h-100 d-flex flex-column">
+                <form id="consentForm" class="flex-grow-1 d-flex flex-column border rounded p-3 mb-2">
+                    <div class="mb-2">
+                        <label class="form-label mb-1" for="signatureCanvas">Handtekening</label>
+                        <canvas id="signatureCanvas" class="border rounded w-100 bg-white" style="height: 120px; touch-action: none;"></canvas>
+                        <div class="d-flex justify-content-between mt-2">
+                            <small class="text-muted">Onderteken hierboven</small>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="clearSignatureBtn">Wis handtekening</button>
+                        </div>
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" value="" id="consentCheck" required>
+                        <label class="form-check-label" for="consentCheck">
+                            Ik heb de bovenstaande informatie gelezen en ga akkoord om deel te nemen aan dit onderzoek.
+                        </label>
+                    </div>
+
+                    <div class="d-grid gap-2 mt-auto">
+                        <button type="submit" class="btn btn-danger" id="submitBtn">
+                            <span class="spinner-border spinner-border-sm d-none" id="submitSpinner" role="status" aria-hidden="true"></span>
+                            <span id="submitText">Ik ga akkoord en ga verder</span>
+                        </button>
+                        <a class="btn btn-outline-dark" href="inlichtingenblad.html">Ga terug</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <script src="../js/backendURL.js"></script>
+    <script src="../js/serverStatus.js"></script>
+    <script src="../js/toestemmingsformulier.js"></script>
+</body>
+
+</html>
