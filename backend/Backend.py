@@ -45,7 +45,6 @@ TRANSCRIBE_DEPLOYMENT = os.getenv(
     "TRANSCRIBE_DEPLOYMENT", os.getenv("WHISPER_DEPLOYMENT", "gpt-4o-transcribe")
 )
 CHAT_DEPLOYMENT = os.getenv("CHAT_DEPLOYMENT", "")
-TTS_DEPLOYMENT = os.getenv("TTS_DEPLOYMENT", "")
 
 ALLOWED_ORIGINS = [
     os.getenv("ALLOWED_ORIGIN_LOCAL", ""),
@@ -350,29 +349,6 @@ def chat(
     )
 
     return {"response": labels_str, "response_id": response_id}
-
-
-@app.post("/tts-stream")
-def tts_stream(text: str = Form(...)):
-    if not client:
-        return Response(content="", status_code=500)
-
-    try:
-        logging.info(f"TTS streaming started at {time.strftime('%Y-%m-%d %H:%M:%S')}")
-        response = client.audio.speech.create(
-            model=TTS_DEPLOYMENT, voice="nova", input=text, response_format="wav"
-        )
-        logging.info(f"TTS streaming finished at {time.strftime('%Y-%m-%d %H:%M:%S')}")
-        return StreamingResponse(
-            response.iter_bytes(),
-            media_type="audio/wav",
-            headers={
-                "Accept-Ranges": "bytes",
-            },
-        )
-    except Exception as e:
-        logging.error(f"TTS streaming error: {e}")
-        return Response(content="", status_code=500)
 
 
 if __name__ == "__main__":
