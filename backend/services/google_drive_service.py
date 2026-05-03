@@ -189,7 +189,7 @@ def upload_to_google_drive(
         if folder_id:
             local_dir = os.path.join(local_dir, folder_id)
         os.makedirs(local_dir, exist_ok=True)
-        
+
         file_path = os.path.join(local_dir, filename)
         if isinstance(file_stream, (bytes, bytearray)):
             with open(file_path, "wb") as f:
@@ -200,7 +200,7 @@ def upload_to_google_drive(
                     f.write(file_stream.read())
                 else:
                     f.write(file_stream)
-        
+
         logging.info(f"[LOCAL STORAGE] Saved {filename} to {file_path}")
         return {"file_id": f"local_{filename}"}
 
@@ -354,6 +354,7 @@ def upload_vragenlijst_csv(
     except Exception as e:
         logging.error(f"Error uploading vragenlijst CSV: {e}")
         raise
+
 
 def upload_screenshot(participant_id: str, screenshot_bytes: bytes, filename: str):
     try:
