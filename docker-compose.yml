@@ -1,0 +1,44 @@
+services:
+  frontend:
+    build: 
+      context: ./frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:80/"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+      start_period: 30s
+    env_file:
+      - .env
+    environment:
+      # This flag tells the backend to save files locally instead of Google Drive. Defaults to true if not set in .env
+      - LOCAL_STORAGE_MODE=${LOCAL_STORAGE_MODE:-true}
+      - GOOGLE_DRIVE_FOLDER_ID=${GOOGLE_DRIVE_FOLDER_ID:-}
+      
+      # Allow frontend on localhost to access backend
+      - ALLOWED_ORIGINS_LOCAL=${ALLOWED_ORIGINS_LOCAL:-http://localhost}
+      - ALLOWED_ORIGINS_HOSTED=${ALLOWED_ORIGINS_HOSTED:-http://127.0.0.1}
+    volumes:
+      # Mount a local directory to capture uploads
+      - ./results:/app/results
+      # Mount service account for Google Drive (optional)
+      - ./backend/service_account.json:/app/service_account.json:ro
