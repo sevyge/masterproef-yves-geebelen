@@ -17,8 +17,6 @@ let hasSpokenSilencePrompt = false;
 const UPLOAD_MAX_RETRIES = 3;
 const UPLOAD_RETRY_DELAY_MS = 2000;
 window.skipNextSilenceEntry = false;
-const transcription = document.getElementById('transcription');
-const ttsAudio = document.getElementById('ttsAudio');
 const backendBaseUrl = backendUrl();
 
 function delay(ms) {
@@ -173,7 +171,6 @@ async function startRecording(sharedStream) {
                 body: formData
             });
             const result = await response.json();
-            if (transcription) transcription.textContent = "Prompt: " + result.transcription;
 
             if (result.transcription) {
                 const formDataChat = new FormData();
@@ -199,11 +196,9 @@ async function startRecording(sharedStream) {
                 });
                 const chatResult = await chatResponse.json();
                 lastChatResult = chatResult;
-                if (transcription) transcription.textContent += '\nChat model response: ' + chatResult.response;
-
             }
         } catch (error) {
-            if (transcription) transcription.textContent = 'Error: Server reageert niet.';
+            console.error('Error during transcription/chat request:', error);
         }
     };
     mediaRecorder.start();
