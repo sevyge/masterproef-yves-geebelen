@@ -1,6 +1,5 @@
 from fastapi import FastAPI, UploadFile, File, Form, BackgroundTasks, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response, StreamingResponse
 from typing import Any
 from openai import AzureOpenAI
 from datetime import datetime
@@ -314,14 +313,14 @@ def chat(
     screenshot_filename = ""
     if screenshot:
         screenshot_filename = f"screenshot_participant_{participant_id}_entry_{entry_number}.jpg"
-        
+
         if "," in screenshot:
             _, b64_data = screenshot.split(",", 1)
         else:
             b64_data = screenshot
-            
+
         screenshot_bytes = base64.b64decode(b64_data)
-        
+
         background_tasks.add_task(
             upload_screenshot,
             participant_id,
