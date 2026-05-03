@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 load_dotenv(os.path.join(BASE_DIR, ".env"))
+load_dotenv(os.path.join(BASE_DIR, "..", ".env"))
 
 # Google Drive setup
 SCOPES = ["https://www.googleapis.com/auth/drive"]
@@ -30,6 +31,9 @@ def get_drive_service():
 
 def get_or_create_participant_folder(participant_id: str) -> str:
     """Return the Drive folder ID for a participant, creating it if needed."""
+    if os.getenv("LOCAL_STORAGE_MODE", "").lower() == "true":
+        return f"participant_{participant_id}"
+
     service = get_drive_service()
     if service is None:
         raise FileNotFoundError("Service account file not found.")
@@ -76,6 +80,9 @@ def get_or_create_participant_folder(participant_id: str) -> str:
 
 def get_or_create_subfolder(parent_id: str, folder_name: str) -> str:
     """Return the Drive folder ID for a subfolder, creating it if needed."""
+    if os.getenv("LOCAL_STORAGE_MODE", "").lower() == "true":
+        return f"{parent_id}/{folder_name}"
+
     service = get_drive_service()
     if service is None:
         raise FileNotFoundError("Service account file not found.")
@@ -117,6 +124,13 @@ def get_or_create_subfolder(parent_id: str, folder_name: str) -> str:
 
 def get_next_participant_id() -> str:
     """Determine the next participant ID by counting existing folders."""
+    if os.getenv("LOCAL_STORAGE_MODE", "").lower() == "true":
+        local_dir = os.path.join(BASE_DIR, "results")
+        if not os.path.exists(local_dir):
+            return "1"
+        folders = [f for f in os.listdir(local_dir) if os.path.isdir(os.path.join(local_dir, f)) and f.startswith("participant_")]
+        return str(len(folders) + 1)
+
     service = get_drive_service()
     if service is None:
         return "1"  # Fallback if no Drive access
@@ -170,6 +184,26 @@ def upload_to_google_drive(
         FileNotFoundError: If the service-account JSON is missing.
         Exception:         Any Google API error.
     """
+    if os.getenv("LOCAL_STORAGE_MODE", "").lower() == "true":
+        local_dir = os.path.join(BASE_DIR, "results")
+        if folder_id:
+            local_dir = os.path.join(local_dir, folder_id)
+        os.makedirs(local_dir, exist_ok=True)
+        
+        file_path = os.path.join(local_dir, filename)
+        if isinstance(file_stream, (bytes, bytearray)):
+            with open(file_path, "wb") as f:
+                f.write(file_stream)
+        else:
+            with open(file_path, "wb") as f:
+                if hasattr(file_stream, "read"):
+                    f.write(file_stream.read())
+                else:
+                    f.write(file_stream)
+        
+        logging.info(f"[LOCAL STORAGE] Saved {filename} to {file_path}")
+        return {"file_id": f"local_{filename}"}
+
     service = get_drive_service()
     if service is None:
         raise FileNotFoundError("Service account file not found.")

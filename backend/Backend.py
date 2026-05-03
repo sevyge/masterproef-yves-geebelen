@@ -31,6 +31,7 @@ from prompts.system_prompt import SYSTEM_PROMPT
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(BASE_DIR, ".env"))
+load_dotenv(os.path.join(BASE_DIR, "..", ".env"))
 
 # Logging
 logging.basicConfig(
@@ -47,8 +48,10 @@ CHAT_DEPLOYMENT = os.getenv("CHAT_DEPLOYMENT", "")
 TTS_DEPLOYMENT = os.getenv("TTS_DEPLOYMENT", "")
 
 ALLOWED_ORIGINS = [
-    os.getenv("ALLOWED_ORIGINS_LOCAL", ""),
-    os.getenv("ALLOWED_ORIGINS_HOSTED", ""),
+    os.getenv("ALLOWED_ORIGIN_LOCAL", ""),
+    os.getenv("ALLOWED_ORIGIN_DOCKER", ""),
+    os.getenv("ALLOWED_ORIGIN_DOCKER_2", ""),
+    os.getenv("ALLOWED_ORIGIN_HOSTED", ""),
 ]
 
 app = FastAPI(
@@ -64,11 +67,16 @@ app.add_middleware(
     allow_headers=["Content-Type"],
 )
 
-client = AzureOpenAI(
-    azure_endpoint=AZURE_OPENAI_ENDPOINT,
-    api_key=AZURE_OPENAI_API_KEY,
-    api_version=AZURE_OPENAI_API_VERSION,
-)
+client = None
+if AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT:
+    try:
+        client = AzureOpenAI(
+            azure_endpoint=AZURE_OPENAI_ENDPOINT,
+            api_key=AZURE_OPENAI_API_KEY,
+            api_version=AZURE_OPENAI_API_VERSION,
+        )
+    except Exception as e:
+        logging.error(f"Failed to initialize AzureOpenAI client: {e}")
 
 # In-memory transcript log per participant
 transcript_log: dict[str, list[dict[str, Any]]] = {}
@@ -197,6 +205,9 @@ def upload_video(video: UploadFile = File(...), participant_id: str = Form(...))
 
 @app.post("/transcribe")
 def transcribe(audio: UploadFile = File(...)):
+    if not client:
+        return {"transcription": "Fout met Azure API credentials"}
+
     with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as temp_file:
         temp_file.write(audio.file.read())
         temp_file_path = temp_file.name
@@ -239,30 +250,33 @@ def chat(
 
     system_prompt = SYSTEM_PROMPT
 
-    response = client.responses.parse(
-        model=CHAT_DEPLOYMENT,
-        instructions=system_prompt,
-        # tools=[
-        #     {"type": "file_search", "vector_store_ids": ["vs_Nby42pG9UlWm64WxQmIPBHtW"]}
-        # ],
-        input=[
-            {
-                "role": "user",
-                "content": user_content,
-            }  # type: ignore
-        ],
-        text_format=ChatClassification,
-        previous_response_id=previous_response_id,
-    )
+    if client:
+        response = client.responses.parse(
+            model=CHAT_DEPLOYMENT,
+            instructions=system_prompt,
+            input=[
+                {
+                    "role": "user",
+                    "content": user_content,
+                }  # type: ignore
+            ],
+            text_format=ChatClassification,
+            previous_response_id=previous_response_id,
+        )
 
-    parsed = response.output_parsed
+        parsed = response.output_parsed
 
-    if parsed is None:
-        logging.error("Model returned no parsed output (possible refusal).")
-        return {"error": "No structured output returned by the model."}
+        if parsed is None:
+            logging.error("Model returned no parsed output (possible refusal).")
+            return {"error": "No structured output returned by the model."}
 
-    labels = parsed.labels
-    confidence_score = parsed.confidence_score
+        labels = parsed.labels
+        confidence_score = parsed.confidence_score
+        response_id = response.id
+    else:
+        labels = []
+        confidence_score = "Fout met Azure API credentials"
+        response_id = ""
 
     if not start_time or not end_time:
         raise HTTPException(
@@ -295,7 +309,7 @@ def chat(
         add_silence_segment_if_needed(transcript_log[participant_id], start_time_dt)
 
     entry_number = len(transcript_log[participant_id]) + 1
-    labels_str = ", ".join(labels) if labels else "None"
+    labels_str = ", ".join(labels) if labels else ("Fout met Azure API credentials" if not client else "None")
 
     # Upload screenshot to google drive
     screenshot_filename = ""
@@ -335,11 +349,14 @@ def chat(
         list(transcript_log[participant_id]),
     )
 
-    return {"response": labels_str, "response_id": response.id}
+    return {"response": labels_str, "response_id": response_id}
 
 
 @app.post("/tts-stream")
 def tts_stream(text: str = Form(...)):
+    if not client:
+        return Response(content="", status_code=500)
+
     try:
         logging.info(f"TTS streaming started at {time.strftime('%Y-%m-%d %H:%M:%S')}")
         response = client.audio.speech.create(
