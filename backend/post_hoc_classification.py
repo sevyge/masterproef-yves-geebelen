@@ -1,7 +1,7 @@
 import os
 import logging
 from dotenv import load_dotenv
-from services.google_drive_service import get_drive_service, upload_to_google_drive
+from services.storage_service import get_drive_service, upload_to_google_drive, get_results_dir
 from openai import AzureOpenAI
 from prompts.system_prompt import SYSTEM_PROMPT
 from schemas.chat import ChatClassification
@@ -32,13 +32,18 @@ def main():
     logging.info(".env file loaded successfully.")
     logging.info("Starting post-hoc classification process...")
 
-    # Connect to Google Drive
-    service = get_drive_service()
-    if not service:
-        logging.error("Failed to connect to Google Drive.")
-        return
+    LOCAL_STORAGE_MODE = os.getenv("LOCAL_STORAGE_MODE", "").lower() == "true"
 
-    logging.info("Successfully connected to Google Drive!")
+    service = None
+    if not LOCAL_STORAGE_MODE:
+        # Connect to Google Drive
+        service = get_drive_service()
+        if not service:
+            logging.error("Failed to connect to Google Drive.")
+            return
+        logging.info("Successfully connected to Google Drive!")
+    else:
+        logging.info("Running in LOCAL STORAGE MODE.")
 
     # Initialize Azure OpenAI Client
     AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
@@ -58,56 +63,80 @@ def main():
         logging.error("Failed to initialize AzureOpenAI client. Cannot perform classification.")
         return
 
-    # Find Participant Folders in Google Drive
-    parent_id = os.getenv("GOOGLE_DRIVE_FOLDER_ID")
-    if not parent_id:
-        logging.error("GOOGLE_DRIVE_FOLDER_ID environment variable is not set.")
-        return
+    # Find Participant Folder
+    parent_id = None
+    if not LOCAL_STORAGE_MODE:
+        parent_id = os.getenv("GOOGLE_DRIVE_FOLDER_ID")
+        if not parent_id:
+            logging.error("GOOGLE_DRIVE_FOLDER_ID environment variable is not set.")
+            return
 
     participant_id = input("Enter Participant ID or Folder Name: ").strip()
     if not participant_id:
         logging.error("No participant ID entered.")
         return
 
-    # Find the specific participant folder in Google Drive
-    participant_folders = get_participant_folders(service, parent_id)
-    logging.info(f"Found {len(participant_folders)} participant folders.")
-    
     folder = None
-    for f in participant_folders:
-        if f['name'] == participant_id:
-            folder = f
-            break
-
-    if not folder:
-        logging.error(f"Participant folder '{participant_id}' not found in Google Drive.")
-        return
-
-    logging.info(f"Processing Folder: {folder['name']} (ID: {folder['id']})")
-    
-    # 1. Search for transcript_met_kennisstructuur_{id}.csv in this folder
-    query = f"'{folder['id']}' in parents and mimeType = 'text/csv' and name contains 'transcript_met_kennisstructuur' and trashed = false"
-    results = service.files().list(
-        q=query,
-        fields="files(id, name)",
-        supportsAllDrives=True,
-        includeItemsFromAllDrives=True
-    ).execute()
-    files = results.get("files", [])
-    
-    if not files:
-        logging.info(f"No transcript CSV found in {folder['name']}.")
-        return
+    if not LOCAL_STORAGE_MODE:
+        # Find the specific participant folder in Google Drive
+        participant_folders = get_participant_folders(service, parent_id)
+        logging.info(f"Found {len(participant_folders)} participant folders.")
         
-    file_id = files[0]['id']
-    file_name = files[0]['name']
-    logging.info(f"Found transcript: {file_name}")
-    
-    # 2. Download the CSV
-    request = service.files().get_media(fileId=file_id)
-    file_content = request.execute()
-    
-    csv_text = file_content.decode('utf-8-sig')
+        for f in participant_folders:
+            if f['name'] == participant_id:
+                folder = f
+                break
+
+        if not folder:
+            logging.error(f"Participant folder '{participant_id}' not found in Google Drive.")
+            return
+
+        logging.info(f"Processing Folder: {folder['name']} (ID: {folder['id']})")
+    else:
+        # Check local folder existence
+        local_folder_path = os.path.join(get_results_dir(), participant_id)
+        if not os.path.isdir(local_folder_path):
+            logging.error(f"Participant folder '{participant_id}' not found locally at: {os.path.abspath(local_folder_path)}")
+            return
+            
+        logging.info(f"Processing Local Folder: {local_folder_path}")
+        # Mimic folder dict structure
+        folder = {"name": participant_id, "id": participant_id}
+
+    file_name = f"transcript_met_kennisstructuur_{participant_id}.csv"
+
+    if not LOCAL_STORAGE_MODE:
+        # 1. Search for transcript_met_kennisstructuur_{id}.csv in this folder
+        query = f"'{folder['id']}' in parents and mimeType = 'text/csv' and name contains 'transcript_met_kennisstructuur' and trashed = false"
+        results = service.files().list(
+            q=query,
+            fields="files(id, name)",
+            supportsAllDrives=True,
+            includeItemsFromAllDrives=True
+        ).execute()
+        files = results.get("files", [])
+        
+        if not files:
+            logging.info(f"No transcript CSV found in {folder['name']}.")
+            return
+            
+        file_id = files[0]['id']
+        file_name = files[0]['name']
+        logging.info(f"Found transcript: {file_name}")
+        
+        # 2. Download the CSV
+        request = service.files().get_media(fileId=file_id)
+        file_content = request.execute()
+        csv_text = file_content.decode('utf-8-sig')
+    else:
+        csv_path = os.path.join(get_results_dir(), participant_id, file_name)
+        if not os.path.exists(csv_path):
+            logging.error(f"No transcript CSV found at {csv_path}.")
+            return
+        logging.info(f"Found local transcript: {csv_path}")
+        with open(csv_path, "r", encoding="utf-8-sig") as f:
+            csv_text = f.read()
+
     reader = csv.DictReader(io.StringIO(csv_text), delimiter=';')
     
     rows = list(reader)

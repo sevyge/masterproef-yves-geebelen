@@ -18,6 +18,18 @@ SCOPES = ["https://www.googleapis.com/auth/drive"]
 SERVICE_ACCOUNT_FILE = os.path.join(BASE_DIR, "service_account.json")
 
 
+def get_results_dir() -> str:
+    """Return the absolute path to the unified results directory."""
+    # Inside Docker, the volume is mounted at /app/results
+    if os.path.exists("/app/results"):
+        return "/app/results"
+    
+    # Outside Docker (on host), resolve to the root results folder
+    root_results = os.path.abspath(os.path.join(BASE_DIR, "..", "results"))
+    os.makedirs(root_results, exist_ok=True)
+    return root_results
+
+
 def get_drive_service():
     """Create a new instance of the Drive API service."""
     if os.path.exists(SERVICE_ACCOUNT_FILE):
@@ -31,7 +43,7 @@ def get_drive_service():
 def get_or_create_participant_folder(participant_id: str) -> str:
     """Return the Drive folder ID for a participant, creating it if needed."""
     if os.getenv("LOCAL_STORAGE_MODE", "").lower() == "true":
-        return f"participant_{participant_id}"
+        return participant_id
 
     service = get_drive_service()
     if service is None:
@@ -124,10 +136,10 @@ def get_or_create_subfolder(parent_id: str, folder_name: str) -> str:
 def get_next_participant_id() -> str:
     """Determine the next participant ID by counting existing folders."""
     if os.getenv("LOCAL_STORAGE_MODE", "").lower() == "true":
-        local_dir = os.path.join(BASE_DIR, "results")
+        local_dir = get_results_dir()
         if not os.path.exists(local_dir):
             return "1"
-        folders = [f for f in os.listdir(local_dir) if os.path.isdir(os.path.join(local_dir, f)) and f.startswith("participant_")]
+        folders = [f for f in os.listdir(local_dir) if os.path.isdir(os.path.join(local_dir, f)) and f.isdigit()]
         return str(len(folders) + 1)
 
     service = get_drive_service()
@@ -184,7 +196,7 @@ def upload_to_google_drive(
         Exception:         Any Google API error.
     """
     if os.getenv("LOCAL_STORAGE_MODE", "").lower() == "true":
-        local_dir = os.path.join(BASE_DIR, "results")
+        local_dir = get_results_dir()
         if folder_id:
             local_dir = os.path.join(local_dir, folder_id)
         os.makedirs(local_dir, exist_ok=True)
