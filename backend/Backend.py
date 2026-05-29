@@ -44,6 +44,7 @@ TRANSCRIBE_DEPLOYMENT = os.getenv(
     "TRANSCRIBE_DEPLOYMENT", os.getenv("WHISPER_DEPLOYMENT", "gpt-4o-transcribe")
 )
 CHAT_DEPLOYMENT = os.getenv("CHAT_DEPLOYMENT", "")
+REALTIME_CLASSIFICATION = os.getenv("REALTIME_CLASSIFICATION", "false").lower() == "true"
 
 ALLOWED_ORIGINS = [
     os.getenv("ALLOWED_ORIGIN_LOCAL", ""),
@@ -248,7 +249,7 @@ def chat(
 
     system_prompt = SYSTEM_PROMPT
 
-    if client:
+    if REALTIME_CLASSIFICATION and client:
         response = client.responses.parse(
             model=CHAT_DEPLOYMENT,
             instructions=system_prompt,
@@ -271,6 +272,10 @@ def chat(
         labels = parsed.labels
         confidence_score = parsed.confidence_score
         response_id = response.id
+    elif not REALTIME_CLASSIFICATION:
+        labels = []
+        confidence_score = ""
+        response_id = ""
     else:
         labels = []
         confidence_score = "Fout met Azure API credentials"
@@ -307,7 +312,11 @@ def chat(
         add_silence_segment_if_needed(transcript_log[participant_id], start_time_dt)
 
     entry_number = len(transcript_log[participant_id]) + 1
-    labels_str = ", ".join(labels) if labels else ("Fout met Azure API credentials" if not client else "None")
+    
+    if not REALTIME_CLASSIFICATION:
+        labels_str = ""
+    else:
+        labels_str = ", ".join(labels) if labels else ("Fout met Azure API credentials" if not client else "None")
 
     # Upload screenshot to google drive
     screenshot_filename = ""
