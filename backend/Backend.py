@@ -14,7 +14,7 @@ from utils.signature_utils import (
     stamp_signature_on_page_two,
 )
 import base64
-from services.google_drive_service import (
+from services.storage_service import (
     get_or_create_participant_folder,
     get_next_participant_id,
     upload_to_google_drive,

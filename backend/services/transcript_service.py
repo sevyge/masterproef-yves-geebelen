@@ -2,7 +2,7 @@ import threading
 from typing import Any
 from datetime import datetime
 
-from services.google_drive_service import upload_transcript_files
+from services.storage_service import upload_transcript_files
 
 TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
 SILENCE_GAP_THRESHOLD_SECONDS = float("5.00")
