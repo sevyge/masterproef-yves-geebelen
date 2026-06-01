@@ -28,6 +28,7 @@ def get_participant_folders(service, parent_id):
 
 def main():
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    load_dotenv(os.path.join(BASE_DIR, ".env"))
     load_dotenv(os.path.join(BASE_DIR, "..", ".env"))
     logging.info(".env file loaded successfully.")
     logging.info("Starting post-hoc classification process...")

@@ -29,6 +29,7 @@ from services.transcript_service import (
 from prompts.system_prompt import SYSTEM_PROMPT
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(BASE_DIR, ".env"))
 load_dotenv(os.path.join(BASE_DIR, "..", ".env"))
 
 # Logging
@@ -45,12 +46,19 @@ TRANSCRIBE_DEPLOYMENT = os.getenv(
 CHAT_DEPLOYMENT = os.getenv("CHAT_DEPLOYMENT", "")
 REALTIME_CLASSIFICATION = os.getenv("REALTIME_CLASSIFICATION", "false").lower() == "true"
 
-ALLOWED_ORIGINS = [
-    os.getenv("ALLOWED_ORIGIN_LOCAL", ""),
-    os.getenv("ALLOWED_ORIGIN_DOCKER", ""),
-    os.getenv("ALLOWED_ORIGIN_DOCKER_2", ""),
-    os.getenv("ALLOWED_ORIGIN_HOSTED", ""),
+raw_origins = [
+    os.getenv("ALLOWED_ORIGIN_LOCAL"),
+    os.getenv("ALLOWED_ORIGIN_DOCKER"),
+    os.getenv("ALLOWED_ORIGIN_DOCKER_2"),
+    os.getenv("ALLOWED_ORIGIN_HOSTED"),
 ]
+
+ALLOWED_ORIGINS = []
+for origin in raw_origins:
+    if origin:
+        cleaned = origin.strip().strip("'\"").rstrip("/")
+        if cleaned:
+            ALLOWED_ORIGINS.append(cleaned)
 
 app = FastAPI(
     description="Masterproef Yves Geebelen - Backend API",
