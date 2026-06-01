@@ -142,6 +142,7 @@ def main():
     
     rows = list(reader)
     updated = False
+    previous_response_id = None
     
     # 3. Iterate through rows and classify all entries
     for row in rows:
@@ -167,6 +168,7 @@ def main():
                 instructions=SYSTEM_PROMPT,
                 input=[{"role": "user", "content": user_content}], # type: ignore
                 text_format=ChatClassification,
+                previous_response_id=previous_response_id,
             )
             
             parsed = response.output_parsed
@@ -203,6 +205,7 @@ def main():
                 row["human_annotations"] = row.get("human_annotations") or "[]"
                 
                 updated = True
+                previous_response_id = response.id
                 logging.info(f"Result: Segments: {len(annotations_list)}")
             else:
                 logging.error("Model returned no parsed output.")
