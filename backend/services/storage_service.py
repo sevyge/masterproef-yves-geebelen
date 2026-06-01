@@ -11,7 +11,6 @@ import io
 from dotenv import load_dotenv
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-load_dotenv(os.path.join(BASE_DIR, ".env"))
 load_dotenv(os.path.join(BASE_DIR, "..", ".env"))
 
 # Google Drive setup
@@ -287,8 +286,8 @@ def upload_transcript_files(participant_id: str, participant_log: list):
                 "end_time",
                 "transcript",
                 "screenshot_filename",
-                "labels",
-                "confidence_score",
+                "llm_annotations",
+                "human_annotations",
             ],
             delimiter=";",
             quoting=csv.QUOTE_ALL,
@@ -382,3 +381,4 @@ def upload_screenshot(participant_id: str, screenshot_bytes: bytes, filename: st
         logging.info(f"Uploaded screenshot {filename} to Google Drive.")
     except Exception as e:
         logging.error(f"Failed to upload screenshot {filename}: {e}")
+

@@ -7,8 +7,9 @@ import tempfile
 import time
 import os
 import logging
+import json
 from dotenv import load_dotenv
-from schemas.chat import ChatClassification
+from schemas.chat import ChatClassification, ClassifiedSegment
 from utils.signature_utils import (
     decode_signature_data,
     stamp_signature_on_page_two,
@@ -29,7 +30,6 @@ from services.transcript_service import (
 from prompts.system_prompt import SYSTEM_PROMPT
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-load_dotenv(os.path.join(BASE_DIR, ".env"))
 load_dotenv(os.path.join(BASE_DIR, "..", ".env"))
 
 # Logging
@@ -256,6 +256,9 @@ def chat(
 
     system_prompt = SYSTEM_PROMPT
 
+    llm_annotations = []
+    response_id = ""
+
     if REALTIME_CLASSIFICATION and client:
         response = client.responses.parse(
             model=CHAT_DEPLOYMENT,
@@ -276,17 +279,31 @@ def chat(
             logging.error("Model returned no parsed output (possible refusal).")
             return {"error": "No structured output returned by the model."}
 
-        labels = parsed.labels
-        confidence_score = parsed.confidence_score
+        for ann in parsed.annotations:
+            quote = ann.exact_quote
+            label = ann.label
+            conf = ann.confidence_score
+            
+            start_idx = transcript.find(quote)
+            if start_idx != -1:
+                end_idx = start_idx + len(quote)
+            else:
+                start_idx = transcript.lower().find(quote.lower())
+                if start_idx != -1:
+                    end_idx = start_idx + len(quote)
+                else:
+                    start_idx = -1
+                    end_idx = -1
+                    
+            llm_annotations.append({
+                "label": label,
+                "quote": quote,
+                "start": start_idx,
+                "end": end_idx,
+                "confidence_score": conf
+            })
+                 
         response_id = response.id
-    elif not REALTIME_CLASSIFICATION:
-        labels = []
-        confidence_score = ""
-        response_id = ""
-    else:
-        labels = []
-        confidence_score = "Fout met Azure API credentials"
-        response_id = ""
 
     if not start_time or not end_time:
         raise HTTPException(
@@ -305,7 +322,7 @@ def chat(
     start_time_value = start_time_dt.strftime(TIMESTAMP_FORMAT)
     end_time_value = end_time_dt.strftime(TIMESTAMP_FORMAT)
 
-    logging.info(f"Chat response: {labels} (confidence: {confidence_score})")
+    logging.info(f"Chat response: Segments: {len(llm_annotations)}")
 
     # Create an empty log for this participant if it doesn't exist yet
     if participant_id not in transcript_log:
@@ -319,11 +336,6 @@ def chat(
         add_silence_segment_if_needed(transcript_log[participant_id], start_time_dt)
 
     entry_number = len(transcript_log[participant_id]) + 1
-    
-    if not REALTIME_CLASSIFICATION:
-        labels_str = ""
-    else:
-        labels_str = ", ".join(labels) if labels else ("Fout met Azure API credentials" if not client else "None")
 
     # Upload screenshot to google drive
     screenshot_filename = ""
@@ -352,8 +364,8 @@ def chat(
             "end_time": end_time_value,
             "transcript": transcript,
             "screenshot_filename": screenshot_filename,
-            "labels": labels_str,
-            "confidence_score": confidence_score,
+            "llm_annotations": json.dumps(llm_annotations, ensure_ascii=False),
+            "human_annotations": "[]",
         }
     )
 
@@ -363,7 +375,7 @@ def chat(
         list(transcript_log[participant_id]),
     )
 
-    return {"response": labels_str, "response_id": response_id}
+    return {"response": "success", "response_id": response_id}
 
 
 if __name__ == "__main__":

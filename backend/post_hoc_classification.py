@@ -7,6 +7,7 @@ from prompts.system_prompt import SYSTEM_PROMPT
 from schemas.chat import ChatClassification
 import io
 import csv
+import json
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
@@ -28,7 +29,6 @@ def get_participant_folders(service, parent_id):
 
 def main():
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    load_dotenv(os.path.join(BASE_DIR, ".env"))
     load_dotenv(os.path.join(BASE_DIR, "..", ".env"))
     logging.info(".env file loaded successfully.")
     logging.info("Starting post-hoc classification process...")
@@ -147,15 +147,15 @@ def main():
     for row in rows:
         transcript_text = (row.get("transcript") or "").strip()
         
-        # Skip empty transcripts
-        if not transcript_text:
-            logging.info(f"Entry {row.get('entry_number')} has an empty transcript. Skipping.")
+        # Skip empty transcripts and silence entries
+        if not transcript_text or (transcript_text.startswith("**") and transcript_text.endswith("**")):
+            logging.info(f"Entry {row.get('entry_number')} has an empty transcript or is a silence entry. Skipping.")
             continue
             
-        # Skip if already classified
-        labels = (row.get("labels") or "").strip()
-        if labels and labels not in ["Fout met Azure API credentials"]:
-            logging.info(f"Entry {row.get('entry_number')} is already classified ({labels}). Skipping.")
+        # Skip if already classified (check if llm_annotations has classifications)
+        llm_annotations_str = (row.get("llm_annotations") or "").strip()
+        if llm_annotations_str and llm_annotations_str != "[]":
+            logging.info(f"Entry {row.get('entry_number')} is already classified. Skipping.")
             continue
 
         logging.info(f"Classifying entry {row.get('entry_number')}...")
@@ -171,10 +171,39 @@ def main():
             
             parsed = response.output_parsed
             if parsed:
-                row["labels"] = ", ".join(parsed.labels) if parsed.labels else "None"
-                row["confidence_score"] = parsed.confidence_score
+                annotations_list = []
+                
+                for ann in parsed.annotations:
+                    quote = ann.exact_quote
+                    label = ann.label
+                    conf = ann.confidence_score
+                    
+                    # Search for start and end character offsets in the transcript
+                    start_idx = transcript_text.find(quote)
+                    if start_idx != -1:
+                        end_idx = start_idx + len(quote)
+                    else:
+                        # Fallback for minor casing discrepancies
+                        start_idx = transcript_text.lower().find(quote.lower())
+                        if start_idx != -1:
+                            end_idx = start_idx + len(quote)
+                        else:
+                            start_idx = -1
+                            end_idx = -1
+                            
+                    annotations_list.append({
+                        "label": label,
+                        "quote": quote,
+                        "start": start_idx,
+                        "end": end_idx,
+                        "confidence_score": conf
+                    })
+                
+                row["llm_annotations"] = json.dumps(annotations_list, ensure_ascii=False)
+                row["human_annotations"] = row.get("human_annotations") or "[]"
+                
                 updated = True
-                logging.info(f"Result: {row['labels']} (Conf: {row['confidence_score']})")
+                logging.info(f"Result: Segments: {len(annotations_list)}")
             else:
                 logging.error("Model returned no parsed output.")
                 
@@ -188,7 +217,15 @@ def main():
         output = io.StringIO()
         writer = csv.DictWriter(
             output,
-            fieldnames=["entry_number", "start_time", "end_time", "transcript", "screenshot_filename", "labels", "confidence_score"],
+            fieldnames=[
+                "entry_number", 
+                "start_time", 
+                "end_time", 
+                "transcript", 
+                "screenshot_filename", 
+                "llm_annotations",
+                "human_annotations"
+            ],
             delimiter=";",
             quoting=csv.QUOTE_ALL,
         )

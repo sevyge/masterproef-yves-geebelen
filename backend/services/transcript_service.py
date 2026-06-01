@@ -43,11 +43,12 @@ def add_silence_segment_if_needed(
     participant_entries.append(
         {
             "entry_number": len(participant_entries) + 1,
-            "transcript": transcript_text or f"**{gap_seconds:.2f}s stilte**",
-            "labels": "NONE",
-            "confidence_score": 1.0,
             "start_time": previous_end_dt.strftime(TIMESTAMP_FORMAT),
             "end_time": start_dt.strftime(TIMESTAMP_FORMAT),
+            "transcript": transcript_text or f"**{gap_seconds:.2f}s stilte**",
+            "screenshot_filename": "",
+            "llm_annotations": "[]",
+            "human_annotations": "[]",
         }
     )
 
