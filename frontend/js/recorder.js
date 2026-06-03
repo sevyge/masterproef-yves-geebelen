@@ -285,7 +285,7 @@ async function enableVoiceActivation() {
         window.endExperimentButton.style.display = 'none';
     }
     if (window.recordButton) {
-        window.recordButton.textContent = 'Onderzoek vroegtijdig stoppen';
+        window.recordButton.textContent = 'Onderzoek stoppen';
         window.recordButton.dataset.sessionState = 'active';
     }
     return true;

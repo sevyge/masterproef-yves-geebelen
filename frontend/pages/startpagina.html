@@ -8,72 +8,274 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <link rel="icon" href="../assets/images/graduation-hat.png" type="image/png">
+    <style>
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        .nav-tabs .nav-link.active {
+            color: #dc3545 !important;
+            border-bottom-color: #fff !important;
+            font-weight: bold;
+        }
+
+        .nav-tabs .nav-link {
+            color: #6c757d;
+        }
+
+        @media (min-width: 768px) {
+            .border-md-end {
+                border-right: 1px solid var(--bs-border-color) !important;
+            }
+        }
+
+        @media (max-width: 767.98px) {
+            .border-md-end {
+                border-right: none !important;
+                border-bottom: 1px solid var(--bs-border-color) !important;
+                padding-bottom: 1rem !important;
+                margin-bottom: 1rem !important;
+            }
+        }
+    </style>
 </head>
 
-<body class="overflow-hidden" style="height: 100vh; height: 100dvh;">
-    <div class="container-fluid h-100 d-flex flex-column pt-2 pb-1" style="max-width: 1100px;">
+<body class="overflow-hidden">
+    <div class="container-fluid d-flex flex-column pt-2 pb-3 mx-auto"
+        style="max-width: 1100px; height: 100vh; height: 100dvh;">
         <div class="d-flex justify-content-between align-items-center mb-1">
-            <img src="../assets/images/uhasselt-liggend.png" alt="UHasselt Logo" class="img-fluid" style="max-width: 180px;">
+            <img src="../assets/images/uhasselt-liggend.png" alt="UHasselt Logo" class="img-fluid"
+                style="max-width: 180px;">
             <span id="serverStatus"></span>
         </div>
 
         <h6 class="text-muted mb-1">Startpagina - Onderzoek: Masterproef Yves Geebelen</h6>
 
-        <div class="card bg-light mb-1 overflow-auto" style="min-height: 0;">
-            <div class="card-body px-3 py-2">
+        <div class="card bg-light mb-3 d-flex flex-column"
+            style="max-height: calc(100vh - 180px); max-height: calc(100dvh - 180px); min-height: 0;">
+            <div class="card-body px-3 py-3 d-flex flex-column flex-grow-1" style="min-height: 0;">
                 <h6 class="fw-bold mb-2">
                     <i class="bi bi-clipboard-data text-danger me-2"></i>Jouw Opdracht: Analyseer het
                     Verkeersboete-proces
                 </h6>
 
-                <h6 class="fw-bold mt-2"><i class="bi bi-briefcase-fill text-primary me-2"></i>De Case</h6>
-                <p class="text-secondary mb-2">
-                    Je treedt op als data-analist voor de lokale politie. De <em>"Road Traffic Fine Management Process"</em> dataset bevat de volledige afhandeling van verkeersboetes, van het aanmaken van de boete tot de uiteindelijke betaling of incasso. De opdrachtgever vraagt jou om een <strong>exploratieve procesdata-analyse (EPA)</strong> uit te voeren, omdat men vermoedt dat de doorlooptijden te lang zijn.
-                </p>
-
-                <h6 class="fw-bold"><i class="bi bi-crosshair text-warning me-2"></i>Onderzoeksvragen</h6>
-                <ul class="text-secondary mb-2">
-                    <li class="mb-1">Wat is de meest efficiënte route (het <em>happy path</em>)?</li>
-                    <li class="mb-1">Waar en waarom ontstaan de grootste <strong>bottlenecks</strong>?</li>
-                    <li>Voldoet de politie aan alle tijdslimieten? (Wettelijk: <strong>90 dagen</strong> voor verzending, en <strong>60 dagen</strong> tijd voor beroep).</li>
+                <ul class="nav nav-tabs mb-2" id="experimentTabs" role="tablist" style="font-size: 0.9rem;">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active fw-bold px-3 py-1.5" id="opdracht-tab" data-bs-toggle="tab"
+                            data-bs-target="#opdracht-content" type="button" role="tab" aria-controls="opdracht-content"
+                            aria-selected="true">
+                            <i class="bi bi-file-earmark-text me-2"></i>1. De Opdracht &amp; Stappenplan
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-bold px-3 py-1.5" id="naslagwerk-tab" data-bs-toggle="tab"
+                            data-bs-target="#naslagwerk-content" type="button" role="tab"
+                            aria-controls="naslagwerk-content" aria-selected="false">
+                            <i class="bi bi-book me-2"></i>2. Begeleidend document
+                        </button>
+                    </li>
                 </ul>
 
-                <hr class="my-2">
+                <div class="tab-content flex-grow-1 d-flex flex-column" id="experimentTabsContent"
+                    style="min-height: 0; overflow: hidden;">
+                    <!-- TAB 1: OPDRACHT & STAPPENPLAN -->
+                    <div class="tab-pane fade show active overflow-auto" id="opdracht-content" role="tabpanel"
+                        aria-labelledby="opdracht-tab" style="max-height: 100%;">
+                        <div class="row g-3 m-0">
+                            <div class="col-md-7 p-0 pe-md-3">
+                                <h6 class="fw-bold"><i class="bi bi-briefcase-fill text-primary me-2"></i>De Case</h6>
+                                <p class="text-secondary small mb-2">
+                                    Je treedt op als procesanalist voor de lokale politie. De <em>"Road Traffic Fine
+                                        Management Process"</em> dataset bevat de volledige afhandeling van
+                                    verkeersboetes in een Italiaanse stad, van het aanmaken van de boete tot de
+                                    uiteindelijke betaling of overdracht aan een incassobureau. De opdrachtgever vraagt
+                                    jou om een <strong>exploratieve procesdata-analyse (EPA)</strong> uit te voeren. Men
+                                    heeft het gevoel dat het proces niet altijd optimaal verloopt, maar men weet niet
+                                    exact waar de problemen liggen. Je kunt het tabblad <strong>'2. Begeleidend
+                                        document'</strong> hierboven gebruiken voor toelichting bij de activiteiten,
+                                    attributen en wetgeving.
+                                </p>
 
-                <div class="row g-2">
-                    <div class="col-md-6 pe-md-4 border-end">
-                        <h6 class="fw-bold"><i class="bi bi-book-half text-success me-2"></i>Begrippenlijst</h6>
-                        <ul class="text-secondary small mb-0">
-                            <li class="mb-1"><strong>Prefecture vs. Judge:</strong> Twee overheidsorganen voor beroep (appeal). De Prefecture-route is laagdrempeliger.</li>
-                            <li class="mb-1"><strong>Add Penalty:</strong> Bij laattijdige betaling, of bij een afgewezen beroep, wordt het boetebedrag doorgaans verhoogd.</li>
-                            <li><strong>Send for Credit Collection:</strong> De overdracht aan een incassobureau (vaak het eindstation).</li>
-                        </ul>
+                                <h6 class="fw-bold mt-2"><i
+                                        class="bi bi-crosshair text-warning me-2"></i>Onderzoeksvragen</h6>
+                                <ul class="text-secondary small mb-2 ps-3">
+                                    <li class="mb-1"><strong>1. Verkenning:</strong> Wat is het standaardverloop van het
+                                        verkeersboeteproces? Breng voor jezelf in kaart hoe de meest voorkomende
+                                        procesflow eruitziet en hoe lang dit doorgaans duurt.</li>
+                                    <li><strong>2. Hoofdvraag:</strong> Kun je minstens drie omstandigheden of patronen
+                                        in de data identificeren waarin verkeersboetes uiteindelijk niet (of niet
+                                        volledig) worden betaald? Probeer verklaringen of hypothesen te formuleren die
+                                        deze omstandigheden kunnen verklaren.</li>
+                                </ul>
+
+                                <h6 class="fw-bold mt-2"><i
+                                        class="bi bi-clock-history text-secondary me-2"></i>Tijdsindicatie</h6>
+                                <p class="text-secondary small mb-0">
+                                    Neem voor deze opdracht gerust de tijd die je nodig hebt. Als richtlijn houden we
+                                    ongeveer <strong>20 tot 30 minuten</strong> aan. Je hoeft <strong>geen
+                                        notities</strong> bij te houden; we baseren ons volledig op wat je hardop
+                                    uitspreekt.
+                                </p>
+                            </div>
+                            <div class="col-md-5 p-0 ps-md-2 d-flex flex-column gap-2">
+                                <div class="card p-2 bg-white border shadow-sm">
+                                    <h6 class="fw-bold mb-1 small text-dark"><i
+                                            class="bi bi-list-ol text-info me-2"></i>Stappenplan</h6>
+                                    <ol class="text-secondary mb-0 ps-3" style="font-size: 0.8rem;">
+                                        <li class="mb-1"><strong>Download de dataset (.xes)</strong> via de knop
+                                            hieronder.</li>
+                                        <li class="mb-1"><strong>Importeer de dataset</strong> in een Process
+                                            Mining-tool naar keuze (bijv. Disco). <br><em>(Zie het tabblad <strong>'2.
+                                                    Begeleidend document'</strong> voor toelichting bij de activiteiten,
+                                                attributen en wetgeving).</em></li>
+                                        <li class="mb-1">Klik op de rode knop <strong>'Start experiment &amp;
+                                                overlay'</strong>.<br><em>(Geef je browser toestemming voor je scherm en
+                                                microfoon, en selecteer het scherm waarop je de analyse uitvoert).</em>
+                                        </li>
+                                        <li class="mb-1">Klik op de <strong>Start-knop</strong> in de zwevende overlay
+                                            om de opname te starten.</li>
+                                        <li>Klaar met je bevindingen? Klik op de rode <strong>stop-knop</strong> in de
+                                            overlay.</li>
+                                    </ol>
+                                </div>
+                                <div class="alert border-danger bg-danger-subtle text-danger py-2 px-3 mb-0"
+                                    role="alert" style="font-size: 0.8rem; border-width: 2px;">
+                                    <div class="d-flex align-items-start">
+                                        <i class="bi bi-mic-fill me-2 fs-5 mt-0"></i>
+                                        <div>
+                                            <strong>Belangrijk: Think-Aloud</strong><br>
+                                            Er zijn <strong>geen foute antwoorden</strong>. Spreek continu hardop uit:
+                                            <ul class="mb-0 mt-1 ps-3"
+                                                style="font-size: 0.78rem; list-style-type: circle;">
+                                                <li><strong>Wat je doet:</strong> <em>(bijv. "Ik filter nu op...")</em>
+                                                </li>
+                                                <li><strong>Wat je ziet:</strong> <em>(bijv. "Ik zie dat 30%
+                                                        van...")</em></li>
+                                                <li><strong>Waarom je dit denkt/doet:</strong> <em>(bijv. "Omdat ik
+                                                        vermoed dat...")</em></li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="col-md-6 ps-md-4">
-                        <h6 class="fw-bold"><i class="bi bi-list-ol text-info me-2"></i>Stappenplan</h6>
-                        <ol class="text-secondary small mb-0">
-                            <li class="mb-1">Download de dataset (.xes) via de knop hieronder.</li>
-                            <li class="mb-1">Klik op <strong>'Start experiment & overlay'</strong>. Er verschijnt een kleine overlay op je scherm.</li>
-                            <li class="mb-1">Importeer de dataset in je Process Mining tool.</li>
-                            <li class="mb-1">Klik op <strong>'Start'</strong> in de overlay om de opname te starten.<br><em>(Tip: Begin direct met hardop praten als je de data inlaadt als 'warm-up').</em></li>
-                            <li>Klaar? Sluit af via de rode Stop-knop in de overlay.</li>
-                        </ol>
-                    </div>
-                </div>
-
-                <div class="alert border-danger bg-danger-subtle text-danger mt-2 mb-0 py-2 px-3" role="alert">
-                    <div class="d-flex align-items-center">
-                        <i class="bi bi-mic-fill me-3 fs-3"></i>
-                        <div>
-                            <strong>Cruciaal voor het experiment:</strong> Spreek tijdens je volledige analyse duidelijk en <strong>hardop ('think-aloud')</strong> uit wat je doet, wat je op het scherm ziet, en vooral <em>waarom</em> je bepaalde keuzes maakt.
+                    <!-- TAB 2: BEGELEIDEND DOCUMENT -->
+                    <div class="tab-pane fade overflow-auto" id="naslagwerk-content" role="tabpanel"
+                        aria-labelledby="naslagwerk-tab" style="max-height: 100%;">
+                        <div class="text-secondary mb-2 ps-1" style="font-size: 0.75rem;">
+                            <em>Gebaseerd op Mannhardt et al. (2016) en Zerbato et al. (2026).</em>
+                        </div>
+                        <div class="row g-3 m-0">
+                            <div class="col-md-6 border-md-end pe-md-3 p-0">
+                                <h6 class="fw-bold mb-2"><i class="bi bi-list-task text-success me-2"></i>Activiteiten
+                                </h6>
+                                <div style="font-size: 0.82rem;" class="mb-3">
+                                    <ul class="text-secondary ps-3 mb-0">
+                                        <li class="mb-1"><strong>Create Fine:</strong> Aanmaken van de verkeersboete in
+                                            het systeem.</li>
+                                        <li class="mb-1"><strong>Send Fine:</strong> Verzenden van de boete naar de
+                                            overtreder.</li>
+                                        <li class="mb-1"><strong>Insert Fine Notification:</strong> Invoeren van de
+                                            boetenotificatie (datum van ontvangst door de overtreder). <em>Dit start de
+                                                betaaltermijn.</em></li>
+                                        <li class="mb-1"><strong>Insert Date Appeal to Prefecture:</strong> Registreren
+                                            van de datum waarop beroep is aangetekend bij de Prefecture (lokale
+                                            overheid).</li>
+                                        <li class="mb-1"><strong>Appeal to Judge:</strong> Beroepsprocedure bij de
+                                            rechter (formeler en duurder).</li>
+                                        <li class="mb-1"><strong>Add Penalty:</strong> Toevoegen van een boeteverhoging
+                                            (wegens laattijdige betaling of afgewezen beroep).</li>
+                                        <li class="mb-1"><strong>Send for Credit Collection:</strong> Overdracht aan
+                                            incassobureau (eindstation voor onbetaalde boetes).</li>
+                                        <li class="mb-1"><strong>Send Appeal to Prefecture:</strong> Doorsturen van het
+                                            beroepsdossier naar de Prefecture.</li>
+                                        <li class="mb-1"><strong>Receive Result Appeal from Prefecture:</strong>
+                                            Ontvangen van de beslissing van de Prefecture over het beroep.</li>
+                                        <li class="mb-1"><strong>Notify Result Appeal to Offender:</strong> Kennisgeving
+                                            van de beslissing van het beroep aan de overtreder.</li>
+                                        <li class="mb-1"><strong>Payment:</strong> Een betaling door de overtreder
+                                            (deelbetaling of volledig).</li>
+                                    </ul>
+                                </div>
+                                <h6 class="fw-bold mb-2"><i class="bi bi-tag text-dark me-2"></i>Attributen</h6>
+                                <div style="font-size: 0.82rem;">
+                                    <ul class="text-secondary ps-3 mb-0">
+                                        <li class="mb-1"><strong>amount:</strong> Het oorspronkelijke boetebedrag (in
+                                            euro's).</li>
+                                        <li class="mb-1"><strong>dismissal:</strong> Reden voor
+                                            kwijtschelding/seponering. <em>(Let op: <code>NIL</code> of leeg betekent
+                                                dat de boete <strong>niet</strong> is kwijtgescholden en dus betaald
+                                                moet worden. Als er een code staat zoals <code>#</code>, <code>G</code>
+                                                of <code>...</code>, is de boete wel vervallen).</em></li>
+                                        <li class="mb-1"><strong>vehicleClass:</strong> De voertuigklasse (bijv. auto,
+                                            motor, vrachtwagen).</li>
+                                        <li class="mb-1"><strong>totalPaymentAmount:</strong> Het totale bedrag dat tot
+                                            nu toe door de overtreder is betaald voor deze boete (case-attribuut).
+                                            <em>Tip: Vergelijk dit met <code>amount + expense</code>.</em></li>
+                                        <li class="mb-1"><strong>article:</strong> Het overtreden wetsartikel uit de
+                                            wegcode (bijv. snelheid, parkeren). <em>(Alleen ingevuld bij 'Create
+                                                Fine').</em></li>
+                                        <li class="mb-1"><strong>points:</strong> Het aantal strafpunten aftrek op het
+                                            rijbewijs.</li>
+                                        <li class="mb-1"><strong>expense:</strong> De administratie- en verzendkosten
+                                            (in euro's). <em>(Let op: dit wordt pas geregistreerd bij de activiteit
+                                                'Send Fine').</em></li>
+                                        <li class="mb-1"><strong>notificationType:</strong> De wijze waarop de
+                                            boete-notificatie is verstuurd naar de overtreder (bijv. aangetekende brief
+                                            of reguliere post).</li>
+                                        <li class="mb-1"><strong>lastSent:</strong> Het type van de laatst verstuurde
+                                            brief voor deze boete. <em>Mogelijke waarden: <code>P</code>
+                                                (Penalty/boeteverhoging), <code>N</code> (Notification/kennisgeving),
+                                                <code>C</code> (Credit Collection/incasso).</em></li>
+                                        <li class="mb-1"><strong>paymentAmount:</strong> Het bedrag van een individuele
+                                            betaling (event-attribuut bij de activiteit 'Payment').</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="col-md-6 ps-md-3 p-0">
+                                <h6 class="fw-bold mb-2"><i class="bi bi-slash-circle text-danger me-2"></i>Wetgeving
+                                    &amp; termijnen</h6>
+                                <div style="font-size: 0.82rem;">
+                                    <ul class="text-secondary ps-3 mb-0">
+                                        <li class="mb-2">
+                                            <strong>Verjaringstermijn (90 dagen):</strong><br>
+                                            De boete moet binnen 90 dagen na overtreding (tussen
+                                            <code>Create Fine</code> en <code>Send Fine</code>) verzonden zijn. Zo niet,
+                                            vervalt de betalingsplicht en wordt de boete geseponeerd (het case-attribuut
+                                            <code>dismissal</code> krijgt een waarde).
+                                        </li>
+                                        <li class="mb-2">
+                                            <strong>Betaaltermijn (60 dagen):</strong><br>
+                                            Na ontvangst van de boete (datum van <code>Insert Fine Notification</code>)
+                                            heeft de overtreder 60 dagen de tijd om te betalen of in beroep te gaan.
+                                        </li>
+                                        <li class="mb-2">
+                                            <strong>Boeteverhoging (Penalty):</strong><br>
+                                            Indien er niet binnen 60 dagen na ontvangst betaald is, wordt er een
+                                            verhoging (<code>Add Penalty</code>) toegevoegd die het boetebedrag
+                                            doorgaans verdubbelt.
+                                        </li>
+                                        <li class="mb-2">
+                                            <strong>Beroepsprocedures (Appeals):</strong><br>
+                                            Beroep bij de Prefect of Rechter schort de betalingstermijn op. Indien het
+                                            beroep wordt ingewilligd, vervalt de boete (het case-attribuut
+                                            <code>dismissal</code> krijgt de waarde 'G' of '#').
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="d-flex gap-3 mt-2 mb-1">
+        <div class="d-flex gap-3 mt-auto mb-3">
             <a class="btn btn-outline-secondary px-4 py-2" id="downloadDataset"
                 href="../assets/data/Road_Traffic_Fine_Management_Process.xes" download>
                 <i class="bi bi-download me-2"></i>Download dataset
@@ -85,6 +287,7 @@
     </div>
 
 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.wasm.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.29/dist/bundle.min.js"></script>
     <script src="../js/backendURL.js"></script>
