@@ -1,11 +1,14 @@
 'use strict';
 
+function getLocalISOString(date = new Date()) {
+    const offset = date.getTimezoneOffset();
+    const localTime = new Date(date.getTime() - (offset * 60 * 1000));
+    return localTime.toISOString().slice(0, -1);
+}
+
 let mediaRecorder;
-let audioChunks = [];
 let stream;
 let isRecording = false;
-let currentChunkStartTime = null;
-let currentChunkEndTime = null;
 let screenRecorder, screenChunks = [];
 let lastChatResult = null;
 let vadEnabled = false;
@@ -46,10 +49,8 @@ function setUploadStatus(status) {
                 window.silencePromptElement.classList.add('d-none');
             }
         } else if (status === 'success') {
-            window.recordButton.style.display = '';
+            window.recordButton.style.display = 'none';
             window.recordButton.disabled = false;
-            window.recordButton.textContent = 'Toch verderdoen?';
-            window.recordButton.dataset.sessionState = 'resume';
             if (window.endExperimentButton) {
                 window.endExperimentButton.style.display = '';
             }
@@ -69,7 +70,7 @@ function setUploadStatus(status) {
 
 async function uploadScreenRecording(blob) {
     const participantId = localStorage.getItem('participant_id');
-    const fileName = `screen-recording-${new Date().toISOString().replace(/[:.]/g, '-')}.webm`;
+    const fileName = `screen-recording-${getLocalISOString().replace(/[:.]/g, '-')}.webm`;
     let lastError = null;
 
     for (let attempt = 1; attempt <= UPLOAD_MAX_RETRIES; attempt++) {
@@ -147,13 +148,21 @@ function startScreenRecording(sessionAudioStream) {
 
 async function startRecording(sharedStream) {
     isRecording = true;
-    currentChunkStartTime = new Date().toISOString();
-    currentChunkEndTime = null;
     stream = sharedStream || await navigator.mediaDevices.getUserMedia({ audio: true });
 
     mediaRecorder = new MediaRecorder(stream);
-    audioChunks = [];
-    mediaRecorder.ondataavailable = event => audioChunks.push(event.data);
+    mediaRecorder.chunkStartTime = getLocalISOString();
+    mediaRecorder.chunkEndTime = null;
+
+    const localAudioChunks = [];
+    const currentRecorder = mediaRecorder;
+
+    mediaRecorder.ondataavailable = event => {
+        if (event.data && event.data.size > 0) {
+            localAudioChunks.push(event.data);
+        }
+    };
+
     mediaRecorder.onstop = async () => {
         const shouldSkipSilenceEntry = Boolean(window.skipNextSilenceEntry);
         window.skipNextSilenceEntry = false;
@@ -163,9 +172,12 @@ async function startRecording(sharedStream) {
         }
         isRecording = false;
 
+        const startTime = currentRecorder.chunkStartTime;
+        const endTime = currentRecorder.chunkEndTime || getLocalISOString();
+
         try {
             const formData = new FormData();
-            formData.append('audio', new Blob(audioChunks));
+            formData.append('audio', new Blob(localAudioChunks));
             const response = await fetch(`${backendBaseUrl}/transcribe`, {
                 method: 'POST',
                 body: formData
@@ -188,8 +200,8 @@ async function startRecording(sharedStream) {
                 if (shouldSkipSilenceEntry) {
                     formDataChat.append('skip_silence_entry', 'true');
                 }
-                formDataChat.append('start_time', currentChunkStartTime || new Date().toISOString());
-                formDataChat.append('end_time', currentChunkEndTime || new Date().toISOString());
+                formDataChat.append('start_time', startTime || getLocalISOString());
+                formDataChat.append('end_time', endTime || getLocalISOString());
                 const chatResponse = await fetch(`${backendBaseUrl}/chat`, {
                     method: 'POST',
                     body: formDataChat
@@ -206,8 +218,8 @@ async function startRecording(sharedStream) {
 
 function stopAudioChunkRecording() {
     if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        if (!currentChunkEndTime) {
-            currentChunkEndTime = new Date().toISOString();
+        if (!mediaRecorder.chunkEndTime) {
+            mediaRecorder.chunkEndTime = getLocalISOString();
         }
         mediaRecorder.stop();
     }
@@ -255,7 +267,9 @@ async function enableVoiceActivation() {
             if (!isRecording) {
                 return;
             }
-            currentChunkEndTime = new Date().toISOString();
+            if (mediaRecorder) {
+                mediaRecorder.chunkEndTime = getLocalISOString();
+            }
             stopAudioChunkRecording();
             clearSilencePromptState();
             silencePromptTimeout = setTimeout(() => {

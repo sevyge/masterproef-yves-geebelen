@@ -82,12 +82,6 @@ pipButton.addEventListener('click', async () => {
 
     sessionButton.onclick = async () => {
       try {
-        const isResumeAction = sessionButton.dataset.sessionState === 'resume';
-
-        if (isResumeAction) {
-          window.skipNextSilenceEntry = true;
-          sessionButton.dataset.sessionState = 'start';
-        }
         if (window.vadEnabled) {
           await window.disableVoiceActivation(true);
         } else if (window.enableVoiceActivation) {
@@ -121,11 +115,15 @@ function takeScreenshot(video) {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
 
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
+  const maxW = 1280;
+  const w = Math.min(video.videoWidth, maxW);
+  const h = Math.round((w / video.videoWidth) * video.videoHeight);
 
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-  return canvas.toDataURL('image/jpeg', 0.9);
+  canvas.width = w;
+  canvas.height = h;
+
+  ctx.drawImage(video, 0, 0, w, h);
+  return canvas.toDataURL('image/jpeg', 0.7);
 }
 
 window.captureCurrentScreenshot = () => {
