@@ -114,8 +114,8 @@ def consent(
     signed_at_iso = time.strftime("%Y-%m-%d %H:%M:%S")
 
     try:
-        timestamp = time.strftime("%Y%m%d-%H%M%S")
-        signed_filename = f"Consent_signed_{participant_id}_{timestamp}.pdf"
+        timestamp = time.strftime("%Y-%m-%d_%H-%M-%S")
+        signed_filename = f"toestemmingsformulier_ondertekend_{participant_id}_{timestamp}.pdf"
 
         participant_folder = get_or_create_participant_folder(participant_id)
 
@@ -189,8 +189,8 @@ def upload_video(video: UploadFile = File(...), participant_id: str = Form(...))
     logging.info(f"Received video upload from participant: {participant_id}")
 
     try:
-        timestamp = time.strftime("%Y%m%d-%H%M%S")
-        filename = f"{participant_id}-recording-{timestamp}.webm"
+        timestamp = time.strftime("%Y-%m-%d_%H-%M-%S")
+        filename = f"schermopname_{participant_id}_{timestamp}.webm"
 
         participant_folder = get_or_create_participant_folder(participant_id)
 
@@ -335,12 +335,12 @@ def chat(
     else:
         add_silence_segment_if_needed(transcript_log[participant_id], start_time_dt)
 
-    entry_number = len(transcript_log[participant_id]) + 1
+    segment_id = len(transcript_log[participant_id]) + 1
 
     # Upload screenshot to google drive
     screenshot_filename = ""
     if screenshot:
-        screenshot_filename = f"screenshot_participant_{participant_id}_entry_{entry_number}.jpg"
+        screenshot_filename = f"screenshot_deelnemer_{participant_id}_fragment_{segment_id}.jpg"
 
         if "," in screenshot:
             _, b64_data = screenshot.split(",", 1)
@@ -359,13 +359,13 @@ def chat(
     # Add the transcript with the knowledge structure classification to the log
     transcript_log[participant_id].append(
         {
-            "entry_number": entry_number,
-            "start_time": start_time_value,
-            "end_time": end_time_value,
+            "segment_id": segment_id,
+            "starttijd": start_time_value,
+            "eindtijd": end_time_value,
             "transcript": transcript,
-            "screenshot_filename": screenshot_filename,
-            "llm_annotations": json.dumps(llm_annotations, ensure_ascii=False),
-            "human_annotations": "[]",
+            "screenshot_bestandsnaam": screenshot_filename,
+            "llm_annotaties": json.dumps(llm_annotations, ensure_ascii=False),
+            "human_annotaties": "[]",
         }
     )
 

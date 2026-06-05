@@ -281,13 +281,13 @@ def upload_transcript_files(participant_id: str, participant_log: list):
         writer = csv.DictWriter(
             output,
             fieldnames=[
-                "entry_number",
-                "start_time",
-                "end_time",
+                "segment_id",
+                "starttijd",
+                "eindtijd",
                 "transcript",
-                "screenshot_filename",
-                "llm_annotations",
-                "human_annotations",
+                "screenshot_bestandsnaam",
+                "llm_annotaties",
+                "human_annotaties",
             ],
             delimiter=";",
             quoting=csv.QUOTE_ALL,
@@ -299,7 +299,7 @@ def upload_transcript_files(participant_id: str, participant_log: list):
         participant_folder = get_or_create_participant_folder(participant_id)
         upload_to_google_drive(
             file_stream=csv_content.encode("utf-8-sig"),
-            filename=f"transcript_met_kennisstructuur_{participant_id}.csv",
+            filename=f"transcript_{participant_id}.csv",
             mimetype="text/csv",
             folder_id=participant_folder,
             overwrite=True,
@@ -310,8 +310,8 @@ def upload_transcript_files(participant_id: str, participant_log: list):
         full_transcript_text = "\n\n".join(
             [
                 (
-                    f"[{entry.get('start_time') or ''} - "
-                    f"{entry.get('end_time') or ''}] "
+                    f"[{entry.get('starttijd') or ''} - "
+                    f"{entry.get('eindtijd') or ''}] "
                     f"{entry['transcript']}"
                 )
                 for entry in participant_log
@@ -336,7 +336,7 @@ def upload_vragenlijst_csv(
         output = io.StringIO()
         writer = csv.writer(output)
         writer.writerow(
-            ["Participant ID", "Praktijkervaring", "Eerder EPA Project", "Gebruikte Tools", "Huidige Rol", "Indiendatum"]
+            ["deelnemer_id", "praktijkervaring", "eerder_epa_project", "gebruikte_tools", "huidige_rol", "indiendatum"]
         )
         tools_str = ", ".join(tools) if tools else "Geen tools geselecteerd"
         writer.writerow(
@@ -353,7 +353,7 @@ def upload_vragenlijst_csv(
         csv_content = output.getvalue()
 
         participant_folder = get_or_create_participant_folder(participant_id)
-        filename = f"vragenlijst_antwoorden_{participant_id}.csv"
+        filename = f"vragenlijst_{participant_id}.csv"
 
         upload_to_google_drive(
             file_stream=csv_content.encode("utf-8"),

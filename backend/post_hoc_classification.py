@@ -104,11 +104,11 @@ def main():
         # Mimic folder dict structure
         folder = {"name": participant_id, "id": participant_id}
 
-    file_name = f"transcript_met_kennisstructuur_{participant_id}.csv"
+    file_name = f"transcript_{participant_id}.csv"
 
     if not LOCAL_STORAGE_MODE:
-        # 1. Search for transcript_met_kennisstructuur_{id}.csv in this folder
-        query = f"'{folder['id']}' in parents and mimeType = 'text/csv' and name contains 'transcript_met_kennisstructuur' and trashed = false"
+        # 1. Search for transcript_{id}.csv in this folder
+        query = f"'{folder['id']}' in parents and mimeType = 'text/csv' and name = '{file_name}' and trashed = false"
         results = service.files().list(
             q=query,
             fields="files(id, name)",
@@ -150,16 +150,16 @@ def main():
         
         # Skip empty transcripts and silence entries
         if not transcript_text or (transcript_text.startswith("**") and transcript_text.endswith("**")):
-            logging.info(f"Entry {row.get('entry_number')} has an empty transcript or is a silence entry. Skipping.")
+            logging.info(f"Entry {row.get('segment_id')} has an empty transcript or is a silence entry. Skipping.")
             continue
             
-        # Skip if already classified (check if llm_annotations has classifications)
-        llm_annotations_str = (row.get("llm_annotations") or "").strip()
+        # Skip if already classified (check if llm_annotaties has classifications)
+        llm_annotations_str = (row.get("llm_annotaties") or "").strip()
         if llm_annotations_str and llm_annotations_str != "[]":
-            logging.info(f"Entry {row.get('entry_number')} is already classified. Skipping.")
+            logging.info(f"Entry {row.get('segment_id')} is already classified. Skipping.")
             continue
 
-        logging.info(f"Classifying entry {row.get('entry_number')}...")
+        logging.info(f"Classifying entry {row.get('segment_id')}...")
         user_content = [{"type": "input_text", "text": transcript_text}]
         
         try:
@@ -201,8 +201,8 @@ def main():
                         "confidence_score": conf
                     })
                 
-                row["llm_annotations"] = json.dumps(annotations_list, ensure_ascii=False)
-                row["human_annotations"] = row.get("human_annotations") or "[]"
+                row["llm_annotaties"] = json.dumps(annotations_list, ensure_ascii=False)
+                row["human_annotaties"] = row.get("human_annotaties") or "[]"
                 
                 updated = True
                 previous_response_id = response.id
@@ -221,13 +221,13 @@ def main():
         writer = csv.DictWriter(
             output,
             fieldnames=[
-                "entry_number", 
-                "start_time", 
-                "end_time", 
+                "segment_id", 
+                "starttijd", 
+                "eindtijd", 
                 "transcript", 
-                "screenshot_filename", 
-                "llm_annotations",
-                "human_annotations"
+                "screenshot_bestandsnaam", 
+                "llm_annotaties",
+                "human_annotaties"
             ],
             delimiter=";",
             quoting=csv.QUOTE_ALL,

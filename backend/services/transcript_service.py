@@ -27,7 +27,7 @@ def add_silence_segment_if_needed(
     if not participant_entries:
         return
 
-    previous_end_time = participant_entries[-1].get("end_time")
+    previous_end_time = participant_entries[-1].get("eindtijd")
     if not previous_end_time:
         return
 
@@ -42,13 +42,13 @@ def add_silence_segment_if_needed(
 
     participant_entries.append(
         {
-            "entry_number": len(participant_entries) + 1,
-            "start_time": previous_end_dt.strftime(TIMESTAMP_FORMAT),
-            "end_time": start_dt.strftime(TIMESTAMP_FORMAT),
+            "segment_id": len(participant_entries) + 1,
+            "starttijd": previous_end_dt.strftime(TIMESTAMP_FORMAT),
+            "eindtijd": start_dt.strftime(TIMESTAMP_FORMAT),
             "transcript": transcript_text or f"**{gap_seconds:.2f}s stilte**",
-            "screenshot_filename": "",
-            "llm_annotations": "[]",
-            "human_annotations": "[]",
+            "screenshot_bestandsnaam": "",
+            "llm_annotaties": "[]",
+            "human_annotaties": "[]",
         }
     )
 
