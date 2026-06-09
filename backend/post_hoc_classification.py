@@ -52,15 +52,15 @@ def main():
     AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION")
     CHAT_DEPLOYMENT = os.getenv("CHAT_DEPLOYMENT", "")
 
-    client = None
+    azure_client = None
     if AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT:
-        client = AzureOpenAI(
+        azure_client = AzureOpenAI(
             azure_endpoint=AZURE_OPENAI_ENDPOINT,
             api_key=AZURE_OPENAI_API_KEY,
             api_version=AZURE_OPENAI_API_VERSION,
         )
 
-    if not client:
+    if not azure_client:
         logging.error("Failed to initialize AzureOpenAI client. Cannot perform classification.")
         return
 
@@ -163,7 +163,7 @@ def main():
         user_content = [{"type": "input_text", "text": transcript_text}]
         
         try:
-            response = client.responses.parse(
+            response = azure_client.responses.parse(
                 model=CHAT_DEPLOYMENT,
                 instructions=SYSTEM_PROMPT,
                 input=[{"role": "user", "content": user_content}], # type: ignore

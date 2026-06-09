@@ -32,10 +32,26 @@ def get_results_dir() -> str:
 
 def get_drive_service():
     """Create a new instance of the Drive API service."""
+    # Try loading credentials from environment variable (for hosting)
+    service_account_json = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
+    if service_account_json:
+        try:
+            import json
+            info = json.loads(service_account_json)
+            creds = service_account.Credentials.from_service_account_info(
+                info, scopes=SCOPES
+            )
+            logging.info("Service account credentials from .env loaded successfully.")
+            return build("drive", "v3", credentials=creds, cache_discovery=False)
+        except Exception as e:
+            logging.error(f"Failed to load credentials from GOOGLE_SERVICE_ACCOUNT_JSON: {e}")
+
+    # Fallback to local file (for local development)
     if os.path.exists(SERVICE_ACCOUNT_FILE):
         creds = service_account.Credentials.from_service_account_file(
             SERVICE_ACCOUNT_FILE, scopes=SCOPES
         )
+        logging.info("Service account credentials from local file loaded successfully.")
         return build("drive", "v3", credentials=creds, cache_discovery=False)
     return None
 

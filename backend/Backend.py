@@ -2,6 +2,7 @@ from fastapi import FastAPI, UploadFile, File, Form, BackgroundTasks, HTTPExcept
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Any
 from openai import AzureOpenAI
+from groq import Groq
 from datetime import datetime
 import tempfile
 import time
@@ -40,9 +41,7 @@ logging.basicConfig(
 AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
 AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT", "")
 AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION")
-TRANSCRIBE_DEPLOYMENT = os.getenv(
-    "TRANSCRIBE_DEPLOYMENT", os.getenv("WHISPER_DEPLOYMENT", "gpt-4o-transcribe")
-)
+TRANSCRIBE_DEPLOYMENT = os.getenv("TRANSCRIBE_DEPLOYMENT", "whisper-1")
 CHAT_DEPLOYMENT = os.getenv("CHAT_DEPLOYMENT", "")
 REALTIME_CLASSIFICATION = os.getenv("REALTIME_CLASSIFICATION", "false").lower() == "true"
 
@@ -73,16 +72,26 @@ app.add_middleware(
     allow_headers=["Content-Type"],
 )
 
-client = None
+azure_client = None
 if AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT:
     try:
-        client = AzureOpenAI(
+        azure_client = AzureOpenAI(
             azure_endpoint=AZURE_OPENAI_ENDPOINT,
             api_key=AZURE_OPENAI_API_KEY,
             api_version=AZURE_OPENAI_API_VERSION,
         )
+        logging.info("AzureOpenAI client initialized successfully.")
     except Exception as e:
         logging.error(f"Failed to initialize AzureOpenAI client: {e}")
+
+groq_client = None
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+if GROQ_API_KEY:
+    try:
+        groq_client = Groq(api_key=GROQ_API_KEY)
+        logging.info("Groq client initialized successfully.")
+    except Exception as e:
+        logging.error(f"Failed to initialize Groq client: {e}")
 
 # In-memory transcript log per participant
 transcript_log: dict[str, list[dict[str, Any]]] = {}
@@ -211,30 +220,82 @@ def upload_video(video: UploadFile = File(...), participant_id: str = Form(...))
 
 @app.post("/transcribe")
 def transcribe(audio: UploadFile = File(...)):
-    if not client:
-        return {"transcription": "Fout met Azure API credentials"}
-
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as temp_file:
-        temp_file.write(audio.file.read())
-        temp_file_path = temp_file.name
-
+    temp_file_path = None
     try:
-        logging.info(
-            f"Speech to text processing started at {time.strftime('%Y-%m-%d %H:%M:%S')}"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as temp_file:
+            temp_file.write(audio.file.read())
+            temp_file_path = temp_file.name
+
+        context_prompt = (
+            "Dit is een think-aloud sessie van een procesdata-analyse. "
+            "Termen gerelateerd aan het verkeersboeteproces en process mining zijn: "
+            "Disco, ProM, Create Fine, Send Fine, Insert Fine Notification, "
+            "Add Penalty, Send for Credit Collection, Payment, Appeal to Judge, Prefecture, "
+            "verjaringstermijn, betaaltermijn, seponering, boeteverhoging, incassobureau."
         )
-        with open(temp_file_path, "rb") as f:
-            result = client.audio.transcriptions.create(
-                model=TRANSCRIBE_DEPLOYMENT, file=f, language="nl"
+
+        # Groq
+        if groq_client:
+            try:
+                logging.info(
+                    f"Speech to text processing with Groq (whisper-large-v3) started at {time.strftime('%Y-%m-%d %H:%M:%S')}"
+                )
+                with open(temp_file_path, "rb") as f:
+                    result = groq_client.audio.transcriptions.create(
+                        file=(os.path.basename(temp_file_path), f.read()),
+                        model="whisper-large-v3",
+                        language="nl",
+                        temperature=0,
+                        prompt=context_prompt,
+                    )
+                logging.info(f"Transcription finished at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+                return {"transcription": result.text, "provider": "Groq (v3)"}
+            except Exception as e_v3:
+                logging.error(f"Error during Groq whisper-large-v3 transcription: {e_v3}")
+                logging.info("Attempting backup with Groq (whisper-large-v3-turbo)...")
+                try:
+                    with open(temp_file_path, "rb") as f:
+                        result = groq_client.audio.transcriptions.create(
+                            file=(os.path.basename(temp_file_path), f.read()),
+                            model="whisper-large-v3-turbo",
+                            language="nl",
+                            temperature=0,
+                            prompt=context_prompt,
+                        )
+                    logging.info(f"Transcription finished at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+                    return {"transcription": result.text, "provider": "Groq (Turbo)"}
+                except Exception as e_turbo:
+                    logging.error(f"Error during Groq whisper-large-v3-turbo transcription: {e_turbo}")
+                    logging.info("Attempting fallback to Azure transcription...")
+
+        # Fallback to Azure if Groq fails
+        if not azure_client:
+            return {"transcription": "Fout met Azure API credentials of Groq API credentials"}
+
+        try:
+            logging.info(
+                f"Speech to text processing with Azure started at {time.strftime('%Y-%m-%d %H:%M:%S')}"
             )
-        if os.path.exists(temp_file_path):
-            os.remove(temp_file_path)
-        logging.info(f"Transcription finished at {time.strftime('%Y-%m-%d %H:%M:%S')}")
-        return {"transcription": result.text}
-    except Exception as e:
-        if os.path.exists(temp_file_path):
-            os.remove(temp_file_path)
-        logging.error(f"Error during transcription: {e}")
-        raise e
+            with open(temp_file_path, "rb") as f:
+                result = azure_client.audio.transcriptions.create(
+                    file=f,
+                    model=TRANSCRIBE_DEPLOYMENT,
+                    language="nl",
+                    temperature=0,
+                    prompt=context_prompt,
+                )
+            logging.info(f"Transcription finished at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+            return {"transcription": result.text, "provider": "Azure"}
+        except Exception as e:
+            logging.error(f"Error during Azure transcription: {e}")
+            raise e
+
+    finally:
+        if temp_file_path and os.path.exists(temp_file_path):
+            try:
+                os.remove(temp_file_path)
+            except Exception as e_cleanup:
+                logging.error(f"Failed to delete temporary file {temp_file_path}: {e_cleanup}")
 
 
 @app.post("/chat")
@@ -259,8 +320,8 @@ def chat(
     llm_annotations = []
     response_id = ""
 
-    if REALTIME_CLASSIFICATION and client:
-        response = client.responses.parse(
+    if REALTIME_CLASSIFICATION and azure_client:
+        response = azure_client.responses.parse(
             model=CHAT_DEPLOYMENT,
             instructions=system_prompt,
             input=[
