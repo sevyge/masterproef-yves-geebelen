@@ -23,6 +23,7 @@ from services.storage_service import (
     upload_vragenlijst_csv,
     upload_screenshot,
     get_or_create_subfolder,
+    get_participants_list,
 )
 from services.transcript_service import (
     add_silence_segment_if_needed,
@@ -439,6 +440,17 @@ def chat(
     )
 
     return {"response": "success", "response_id": response_id}
+
+
+# Researcher tool endpoints
+# Get participant folder names
+@app.get("/researcher/participants")
+def list_participants():
+    try:
+        return get_participants_list()
+    except Exception as e:
+        logging.error(f"Error listing participants: {e}")
+        raise HTTPException(status_code=500, detail="Failed to list participants")
 
 
 if __name__ == "__main__":

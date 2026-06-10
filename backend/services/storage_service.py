@@ -412,3 +412,44 @@ def upload_screenshot(participant_id: str, screenshot_bytes: bytes, filename: st
     except Exception as e:
         logging.error(f"Failed to upload screenshot {filename}: {e}")
 
+
+def get_participants_list() -> list[str]:
+    """Retrieve all participant IDs (folders) from local storage or Google Drive."""
+    LOCAL_STORAGE_MODE = os.getenv("LOCAL_STORAGE_MODE", "").lower() == "true"
+    if LOCAL_STORAGE_MODE:
+        local_dir = get_results_dir()
+        if not os.path.exists(local_dir):
+            return []
+        folders = []
+        for name in os.listdir(local_dir):
+            if not name.startswith("."):
+                folders.append(name)
+        return folders
+    else:
+        service = get_drive_service()
+        if service is None:
+            logging.error("Failed to connect to Google Drive inside get_participants_list.")
+            return []
+        parent_id = os.getenv("GOOGLE_DRIVE_FOLDER_ID")
+        if not parent_id:
+            logging.error("GOOGLE_DRIVE_FOLDER_ID not set inside get_participants_list.")
+            return []
+        query = (
+            f"'{parent_id}' in parents and "
+            f"mimeType = 'application/vnd.google-apps.folder' and trashed = false"
+        )
+        try:
+            results = service.files().list(
+                q=query,
+                pageSize=1000,
+                fields="files(name)",
+                supportsAllDrives=True,
+                includeItemsFromAllDrives=True,
+            ).execute()
+            folders = results.get("files", [])
+            return [f['name'] for f in folders if f.get('name')]
+        except Exception as e:
+            logging.error(f"Error fetching participant folders from Google Drive: {e}")
+            return []
+
+
