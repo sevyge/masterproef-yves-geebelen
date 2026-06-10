@@ -22,6 +22,7 @@ from services.storage_service import (
     upload_to_google_drive,
     upload_vragenlijst_csv,
     upload_screenshot,
+    get_or_create_subfolder,
 )
 from services.transcript_service import (
     add_silence_segment_if_needed,
@@ -127,6 +128,7 @@ def consent(
         signed_filename = f"toestemmingsformulier_ondertekend_{participant_id}_{timestamp}.pdf"
 
         participant_folder = get_or_create_participant_folder(participant_id)
+        get_or_create_subfolder(participant_folder, "Screenshots")
 
         template_path = os.path.join(BASE_DIR, "Document 5 - toestemmingsformulier voor de deelnemer.pdf")
         if not os.path.exists(template_path):
@@ -433,7 +435,7 @@ def chat(
     background_tasks.add_task(
         upload_transcript_files_with_lock,
         participant_id,
-        list(transcript_log[participant_id]),
+        transcript_log[participant_id],
     )
 
     return {"response": "success", "response_id": response_id}

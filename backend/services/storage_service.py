@@ -8,6 +8,7 @@ import time
 import logging
 import csv
 import io
+import threading
 from dotenv import load_dotenv
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -30,8 +31,16 @@ def get_results_dir() -> str:
     return root_results
 
 
+# Thread-local storage for the Drive service to prevent concurrent access issues
+_thread_local = threading.local()
+
+
 def get_drive_service():
     """Create a new instance of the Drive API service."""
+    # Check if this thread already has an active client
+    if hasattr(_thread_local, "drive_service"):
+        return _thread_local.drive_service
+
     # Try loading credentials from environment variable (for hosting)
     service_account_json = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
     if service_account_json:
@@ -42,17 +51,22 @@ def get_drive_service():
                 info, scopes=SCOPES
             )
             logging.info("Service account credentials from .env loaded successfully.")
-            return build("drive", "v3", credentials=creds, cache_discovery=False)
+            _thread_local.drive_service = build("drive", "v3", credentials=creds, cache_discovery=False)
+            return _thread_local.drive_service
         except Exception as e:
             logging.error(f"Failed to load credentials from GOOGLE_SERVICE_ACCOUNT_JSON: {e}")
 
     # Fallback to local file (for local development)
     if os.path.exists(SERVICE_ACCOUNT_FILE):
-        creds = service_account.Credentials.from_service_account_file(
-            SERVICE_ACCOUNT_FILE, scopes=SCOPES
-        )
-        logging.info("Service account credentials from local file loaded successfully.")
-        return build("drive", "v3", credentials=creds, cache_discovery=False)
+        try:
+            creds = service_account.Credentials.from_service_account_file(
+                SERVICE_ACCOUNT_FILE, scopes=SCOPES
+            )
+            logging.info("Service account credentials from local file loaded successfully.")
+            _thread_local.drive_service = build("drive", "v3", credentials=creds, cache_discovery=False)
+            return _thread_local.drive_service
+        except Exception as e:
+            logging.error(f"Failed to load credentials from local file: {e}")
     return None
 
 
