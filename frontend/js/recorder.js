@@ -19,6 +19,7 @@ let silencePromptTimeout = null;
 let hasSpokenSilencePrompt = false;
 const UPLOAD_MAX_RETRIES = 3;
 const UPLOAD_RETRY_DELAY_MS = 2000;
+const SILENCE_PROMPT_DELAY_MS = 10000;
 window.skipNextSilenceEntry = false;
 const backendBaseUrl = backendUrl();
 
@@ -51,17 +52,16 @@ function setUploadStatus(status) {
         } else if (status === 'success') {
             window.recordButton.style.display = 'none';
             window.recordButton.disabled = false;
-            if (window.endExperimentButton) {
-                window.endExperimentButton.style.display = '';
+            window.focus();
+            window.location.href = "afsluiting.html";
+            if (window.pipWindow) {
+                window.pipWindow.close();
             }
         } else if (status === 'error') {
             window.recordButton.style.display = '';
             window.recordButton.disabled = false;
             window.recordButton.textContent = 'Start onderzoek';
             window.recordButton.dataset.sessionState = 'start';
-            if (window.endExperimentButton) {
-                window.endExperimentButton.style.display = 'none';
-            }
         }
     }
 }
@@ -252,6 +252,8 @@ async function enableVoiceActivation() {
         startOnLoad: false,
         onnxWASMBasePath: 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/',
         baseAssetPath: 'https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.29/dist/',
+        positiveSpeechThreshold: 0.6,
+        redemptionFrames: 7,
         onSpeechStart: async () => {
             if (!vadEnabled || isRecording) {
                 return;
@@ -283,7 +285,7 @@ async function enableVoiceActivation() {
                     window.silencePromptElement.classList.add('alert-warning', 'pulsing-alert');
                     window.silencePromptElement.innerHTML = '🎤 <strong>Vergeet niet hardop te denken!</strong>';
                 }
-            }, 10000);
+            }, SILENCE_PROMPT_DELAY_MS);
         }
     });
 
@@ -294,9 +296,6 @@ async function enableVoiceActivation() {
     if (window.silencePromptElement) {
         window.silencePromptElement.classList.remove('d-none');
         window.silencePromptElement.classList.add('d-flex');
-    }
-    if (window.endExperimentButton) {
-        window.endExperimentButton.style.display = 'none';
     }
     if (window.recordButton) {
         window.recordButton.textContent = 'Onderzoek stoppen';

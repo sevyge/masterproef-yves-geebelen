@@ -22,6 +22,7 @@ pipButton.addEventListener('click', async () => {
       height: 120,
       disallowReturnToOpener: true
     });
+    window.pipWindow = pipWindow;
 
     pipButton.disabled = true;
     pipButton.textContent = "Overlay Open";
@@ -61,24 +62,14 @@ pipButton.addEventListener('click', async () => {
           border: 2px solid #ffc107 !important;
         }
       </style>
-      <button id="endExperimentButton" class="btn btn-dark" style="display:none;">Sluit experiment af</button>
       <button id="sessionButton" class="btn btn-danger">Start onderzoek</button>
       <div id="silencePrompt" class="alert alert-secondary py-1 px-2 mb-0 d-flex align-items-center justify-content-center text-center"></div>
     `;
 
-
-
     const sessionButton = pipWindow.document.getElementById('sessionButton');
-    const endExperimentButton = pipWindow.document.getElementById('endExperimentButton');
     const silencePrompt = pipWindow.document.getElementById('silencePrompt');
     window.recordButton = sessionButton;
-    window.endExperimentButton = endExperimentButton;
     window.silencePromptElement = silencePrompt;
-
-    endExperimentButton.onclick = () => {
-      window.location.href = "afsluiting.html";
-      pipWindow.close();
-    };
 
     sessionButton.onclick = async () => {
       try {
@@ -104,6 +95,7 @@ pipButton.addEventListener('click', async () => {
       window.recordButton = null;
       window.silencePromptElement = null;
       window.screenshotBase64 = null;
+      window.pipWindow = null;
     });
 
   } else {
