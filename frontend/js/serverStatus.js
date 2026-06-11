@@ -5,6 +5,7 @@ let lastStatus = 'unknown';
 const backendBaseUrl = backendUrl();
 
 function setServerStatus(text, color) {
+    if (!serverStatusElement) return;
     serverStatusElement.innerHTML = `<span style="color:${color}">● </span>${text}`;
 }
 
