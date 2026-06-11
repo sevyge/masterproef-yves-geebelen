@@ -414,7 +414,7 @@ def upload_screenshot(participant_id: str, screenshot_bytes: bytes, filename: st
 
 
 def get_participants_list() -> list[str]:
-    """Retrieve all participant IDs (folders) from local storage or Google Drive."""
+    """Retrieve all folders names from local storage or Google Drive."""
     LOCAL_STORAGE_MODE = os.getenv("LOCAL_STORAGE_MODE", "").lower() == "true"
     if LOCAL_STORAGE_MODE:
         local_dir = get_results_dir()
@@ -451,5 +451,56 @@ def get_participants_list() -> list[str]:
         except Exception as e:
             logging.error(f"Error fetching participant folders from Google Drive: {e}")
             return []
+
+
+def get_participant_transcript(participant_id: str) -> list[dict]:
+    """Retrieve and parse the transcript CSV for a given participant."""
+    import json
+    
+    LOCAL_STORAGE_MODE = os.getenv("LOCAL_STORAGE_MODE", "").lower() == "true"
+    csv_text = ""
+    
+    # Fetch CSV content
+    if LOCAL_STORAGE_MODE:
+        file_path = os.path.join(get_results_dir(), participant_id, f"transcript_{participant_id}.csv")
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"Transcript CSV not found for participant {participant_id}")
+        with open(file_path, "r", encoding="utf-8-sig") as f:
+            csv_text = f.read()
+    else:
+        service = get_drive_service()
+        if service is None:
+            raise FileNotFoundError("Google Drive service not initialized")
+        folder_id = get_or_create_participant_folder(participant_id)
+        file_name = f"transcript_{participant_id}.csv"
+        
+        query = f"'{folder_id}' in parents and mimeType = 'text/csv' and name = '{file_name}' and trashed = false"
+        results = service.files().list(
+            q=query, fields="files(id)", supportsAllDrives=True, includeItemsFromAllDrives=True
+        ).execute()
+        files = results.get("files", [])
+        if not files:
+            raise FileNotFoundError(f"Transcript CSV not found on Google Drive for participant {participant_id}")
+            
+        request = service.files().get_media(fileId=files[0]['id'])
+        csv_text = request.execute().decode('utf-8-sig')
+
+    # Parse CSV
+    reader = csv.DictReader(io.StringIO(csv_text), delimiter=';')
+    rows = []
+    for row in reader:
+        for col in ["llm_annotaties", "human_annotaties"]:
+            val = (row.get(col) or "").strip()
+            if val:
+                try:
+                    row[col] = json.loads(val)
+                except Exception:
+                    row[col] = []
+            else:
+                row[col] = []
+        rows.append(row)
+        
+    return rows
+
 
 

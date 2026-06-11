@@ -24,6 +24,7 @@ from services.storage_service import (
     upload_screenshot,
     get_or_create_subfolder,
     get_participants_list,
+    get_participant_transcript,
 )
 from services.transcript_service import (
     add_silence_segment_if_needed,
@@ -451,6 +452,18 @@ def list_participants():
     except Exception as e:
         logging.error(f"Error listing participants: {e}")
         raise HTTPException(status_code=500, detail="Failed to list participants")
+
+
+# Get transcript segments for a participant
+@app.get("/researcher/participant/{participant_id}/transcript")
+def get_transcript(participant_id: str):
+    try:
+        return get_participant_transcript(participant_id)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logging.error(f"Error loading transcript for participant {participant_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to load transcript")
 
 
 if __name__ == "__main__":
