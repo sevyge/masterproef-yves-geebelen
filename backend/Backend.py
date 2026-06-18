@@ -480,6 +480,39 @@ def get_screenshot(participant_id: str, filename: str):
         raise HTTPException(status_code=500, detail="Failed to load screenshot")
 
 
+# Save annotations for a participant
+@app.post("/researcher/participant/{participant_id}/annotations")
+def save_annotations(participant_id: str, updated_segments: list[dict[str, Any]]):
+    try:
+        from services.storage_service import upload_transcript_files
+        
+        participant_log = []
+        for seg in updated_segments:
+            llm_ann = seg.get("llm_annotaties")
+            if not isinstance(llm_ann, str):
+                llm_ann = json.dumps(llm_ann, ensure_ascii=False)
+                
+            human_ann = seg.get("human_annotaties")
+            if not isinstance(human_ann, str):
+                human_ann = json.dumps(human_ann, ensure_ascii=False)
+                
+            participant_log.append({
+                "segment_id": seg.get("segment_id"),
+                "starttijd": seg.get("starttijd"),
+                "eindtijd": seg.get("eindtijd"),
+                "transcript": seg.get("transcript"),
+                "screenshot_bestandsnaam": seg.get("screenshot_bestandsnaam"),
+                "llm_annotaties": llm_ann,
+                "human_annotaties": human_ann,
+            })
+            
+        upload_transcript_files(participant_id, participant_log)
+        return {"status": "success"}
+    except Exception as e:
+        logging.error(f"Error saving annotations for participant {participant_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to save annotations")
+
+
 if __name__ == "__main__":
     import uvicorn
 

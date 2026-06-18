@@ -16,7 +16,11 @@
                 <img src="../assets/images/uhasselt-liggend.png" alt="UHasselt Logo" class="img-fluid me-3" style="max-width: 150px;">
                 <h5 class="m-0 fw-bold border-start ps-3 text-secondary">Onderzoeker Annotatietool</h5>
             </div>
-            <div class="col-md-6 d-flex justify-content-end align-items-center">
+            <div class="col-md-6 d-flex justify-content-end align-items-center gap-3">
+                <div class="form-check form-switch m-0">
+                    <input class="form-check-input" type="checkbox" role="switch" id="toggleLlmAnnotations">
+                    <label class="form-check-label small fw-semibold text-secondary" for="toggleLlmAnnotations">Toon LLM suggesties</label>
+                </div>
                 <div class="d-flex align-items-center gap-2">
                     <label for="participantSelect" class="text-nowrap m-0 fw-semibold text-secondary">Deelnemer:</label>
                     <select class="form-select form-select-sm" id="participantSelect" style="width: 180px;">
@@ -95,23 +99,23 @@
                         <div class="d-flex flex-column gap-2 mb-3">
                             <div class="d-flex align-items-center gap-2">
                                 <span class="badge bg-warning text-dark text-center" style="width: 45px;">DK</span>
-                                <span class="text-secondary">Declarative (Feiten / "wat")</span>
+                                <span class="text-secondary">Declaratieve kennis</span>
                             </div>
                             <div class="d-flex align-items-center gap-2">
                                 <span class="badge bg-primary text-center" style="width: 45px;">PK</span>
-                                <span class="text-secondary">Procedural (Interactie / "hoe")</span>
+                                <span class="text-secondary">Procedurele kennis</span>
                             </div>
                             <div class="d-flex align-items-center gap-2">
                                 <span class="badge bg-success text-center" style="width: 45px;">CK</span>
-                                <span class="text-secondary">Conditional (Reden / "waarom")</span>
+                                <span class="text-secondary">Conditionele kennis</span>
                             </div>
                             <div class="d-flex align-items-center gap-2">
                                 <span class="badge bg-danger text-center" style="width: 45px;">DOM</span>
-                                <span class="text-secondary">Domain Knowledge (Process Mining)</span>
+                                <span class="text-secondary">Domeinkennis</span>
                             </div>
                             <div class="d-flex align-items-center gap-2">
                                 <span class="badge bg-secondary text-center" style="width: 45px;">NONE</span>
-                                <span class="text-secondary">Geen cognitieve structuur</span>
+                                <span class="text-secondary">Geen kennistype</span>
                             </div>
                         </div>
                         <div class="border-top pt-2 text-muted" style="font-size: 0.8rem;">
