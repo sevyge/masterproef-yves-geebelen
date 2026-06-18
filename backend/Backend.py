@@ -484,7 +484,10 @@ def get_screenshot(participant_id: str, filename: str):
 @app.post("/researcher/participant/{participant_id}/annotations")
 def save_annotations(participant_id: str, updated_segments: list[dict[str, Any]]):
     try:
-        from services.storage_service import upload_transcript_files
+        from services.storage_service import upload_transcript_files, create_original_transcript_backup
+        
+        # Create a backup of the original transcript
+        create_original_transcript_backup(participant_id)
         
         participant_log = []
         for seg in updated_segments:

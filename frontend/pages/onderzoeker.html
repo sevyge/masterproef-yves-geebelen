@@ -24,7 +24,6 @@
                 <div class="d-flex align-items-center gap-2">
                     <label for="participantSelect" class="text-nowrap m-0 fw-semibold text-secondary">Deelnemer:</label>
                     <select class="form-select form-select-sm" id="participantSelect" style="width: 180px;">
-                        <option value="">Selecteer...</option>
                     </select>
                 </div>
             </div>
@@ -126,6 +125,16 @@
             </div>
         </div>
     </div>
+    <div id="selectionPopup" class="d-none position-absolute card shadow-sm z-3" style="width: auto;">
+        <div class="card-body p-1 d-flex gap-1 bg-white border rounded">
+            <button class="btn btn-sm btn-warning fw-bold text-dark popup-btn px-2" data-label="DK" title="Declaratieve kennis">DK</button>
+            <button class="btn btn-sm btn-primary fw-bold text-white popup-btn px-2" data-label="PK" title="Procedurele kennis">PK</button>
+            <button class="btn btn-sm btn-success fw-bold text-white popup-btn px-2" data-label="CK" title="Conditionele kennis">CK</button>
+            <button class="btn btn-sm btn-danger fw-bold text-white popup-btn px-2" data-label="DOM" title="Domeinkennis">DOM</button>
+            <button class="btn btn-sm btn-secondary fw-bold text-white popup-btn px-2" data-label="NONE" title="Geen kennistype">NONE</button>
+        </div>
+    </div>
+
     <script src="../js/backendURL.js"></script>
     <script src="../js/onderzoeker.js"></script>
 </body>

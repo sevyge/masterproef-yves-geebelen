@@ -232,6 +232,7 @@ def upload_to_google_drive(
         os.makedirs(local_dir, exist_ok=True)
 
         file_path = os.path.join(local_dir, filename)
+
         if isinstance(file_stream, (bytes, bytearray)):
             with open(file_path, "wb") as f:
                 f.write(file_stream)
@@ -534,6 +535,63 @@ def get_participant_screenshot(participant_id: str, filename: str) -> bytes:
         file_id = files[0]['id']
         request = service.files().get_media(fileId=file_id)
         return request.execute()
+
+
+def create_original_transcript_backup(participant_id: str):
+    """Create a backup of the transcript (e.g. transcript_{participant_id}_original.csv)
+    before human annotations are saved, if it doesn't exist yet."""
+    import shutil
+    LOCAL_STORAGE_MODE = os.getenv("LOCAL_STORAGE_MODE", "").lower() == "true"
+    
+    filename = f"transcript_{participant_id}.csv"
+    backup_filename = f"transcript_{participant_id}_original.csv"
+    
+    if LOCAL_STORAGE_MODE:
+        local_dir = os.path.join(get_results_dir(), participant_id)
+        file_path = os.path.join(local_dir, filename)
+        backup_path = os.path.join(local_dir, backup_filename)
+        
+        if os.path.exists(file_path) and not os.path.exists(backup_path):
+            try:
+                shutil.copyfile(file_path, backup_path)
+                logging.info(f"[BACKUP] Created original backup at {backup_path}")
+            except Exception as e:
+                logging.error(f"[BACKUP] Failed to create original backup: {e}")
+    else:
+        service = get_drive_service()
+        if service is None:
+            logging.error("[BACKUP] Google Drive service not initialized for backup.")
+            return
+            
+        try:
+            folder_id = get_or_create_participant_folder(participant_id)
+            
+            # Check if original backup already exists
+            query_backup = f"'{folder_id}' in parents and name = '{backup_filename}' and trashed = false"
+            results_backup = service.files().list(
+                q=query_backup, fields="files(id)", supportsAllDrives=True, includeItemsFromAllDrives=True
+            ).execute()
+            
+            if not results_backup.get("files", []):
+                # Search for original file
+                query_orig = f"'{folder_id}' in parents and name = '{filename}' and trashed = false"
+                results_orig = service.files().list(
+                    q=query_orig, fields="files(id)", supportsAllDrives=True, includeItemsFromAllDrives=True
+                ).execute()
+                
+                orig_files = results_orig.get("files", [])
+                if orig_files:
+                    orig_file_id = orig_files[0]["id"]
+                    # Copy on Google Drive
+                    copied_file = service.files().copy(
+                        fileId=orig_file_id,
+                        body={"name": backup_filename, "parents": [folder_id]},
+                        supportsAllDrives=True
+                    ).execute()
+                    logging.info(f"[BACKUP] Created original Google Drive backup with ID: {copied_file.get('id')}")
+        except Exception as e:
+            logging.error(f"[BACKUP] Failed to create Google Drive backup: {e}")
+
 
 
 

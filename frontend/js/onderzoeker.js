@@ -1,6 +1,7 @@
 let currentParticipantId = null;
 let segments = [];
 let currentSegmentIndex = -1;
+let activeSelection = null;
 
 document.addEventListener("DOMContentLoaded", function() {
     loadParticipants();
@@ -26,9 +27,9 @@ function setupEventListeners() {
         
         e.preventDefault();
         
-        const selectionInfo = getSelectedTextInfo();
-        if (selectionInfo) {
-            addAnnotation(selectionInfo.quote, selectionInfo.start, selectionInfo.end, label);
+        if (activeSelection) {
+            addAnnotation(activeSelection.quote, activeSelection.start, activeSelection.end, label);
+            hideSelectionPopup();
         }
     });
 
@@ -39,6 +40,29 @@ function setupEventListeners() {
     document.getElementById("toggleLlmAnnotations").addEventListener("change", function() {
         renderTranscript();
     });
+
+    document.getElementById("transcriptContainer").addEventListener("pointerup", function() {
+        handleTextSelection();
+    });
+
+    document.getElementById("selectionPopup").addEventListener("click", function(e) {
+        const button = e.target.closest(".popup-btn");
+        if (!button) return;
+        
+        const label = button.getAttribute("data-label");
+        if (activeSelection) {
+            addAnnotation(activeSelection.quote, activeSelection.start, activeSelection.end, label);
+        }
+        hideSelectionPopup();
+    });
+
+    document.addEventListener("pointerdown", function(e) {
+        const popup = document.getElementById("selectionPopup");
+        const container = document.getElementById("transcriptContainer");
+        if (popup && !popup.contains(e.target) && !container.contains(e.target)) {
+            hideSelectionPopup();
+        }
+    });
 }
 
 async function loadParticipants() {
@@ -47,11 +71,18 @@ async function loadParticipants() {
         if (!response.ok) return;
 
         const participants = await response.json();
-        let optionsHtml = '<option value="">Selecteer...</option>';
+        let optionsHtml = '';
         for (let i = 0; i < participants.length; i++) {
             optionsHtml += `<option value="${participants[i]}">Participant ${participants[i]}</option>`;
         }
-        document.getElementById("participantSelect").innerHTML = optionsHtml;
+        const selectEl = document.getElementById("participantSelect");
+        selectEl.innerHTML = optionsHtml;
+
+        // Auto-select the first participant by default
+        if (participants.length > 0) {
+            selectEl.value = participants[0];
+            loadParticipantData(participants[0]);
+        }
     } catch (error) {
         console.error("Error loading participants:", error);
     }
@@ -63,14 +94,27 @@ async function loadParticipantData(participantId) {
     currentSegmentIndex = -1;
     clearWorkspace();
 
+    const spinner = '<div class="text-center py-5"><div class="spinner-border spinner-border-sm text-secondary" role="status"></div></div>';
+    document.getElementById("segmentsList").innerHTML = spinner;
+    document.getElementById("transcriptContainer").innerHTML = spinner;
+    document.getElementById("screenshotViewer").innerHTML = spinner;
+
     try {
         const response = await fetch(`${backendUrl()}/researcher/participant/${participantId}/transcript`);
         if (!response.ok) {
             console.error("Failed to fetch participant transcript");
+            clearWorkspace();
             return;
         }
 
         segments = await response.json();
+        for (let i = 0; i < segments.length; i++) {
+            // Normalize newlines to spaces so Range.toString() matches textContent
+            segments[i].transcript = (segments[i].transcript || "").replace(/\n/g, " ");
+            if (!segments[i].human_annotaties) segments[i].human_annotaties = [];
+            if (!segments[i].llm_annotaties) segments[i].llm_annotaties = [];
+        }
+        
         renderSegments();
         
         if (segments.length > 0) {
@@ -78,18 +122,24 @@ async function loadParticipantData(participantId) {
         }
     } catch (error) {
         console.error("Error loading participant data:", error);
+        clearWorkspace();
     }
 }
 
+function renderScreenshotPlaceholder(message) {
+    return `
+        <span class="text-muted" id="screenshotPlaceholder">
+            <i class="bi bi-image fs-1 d-block text-center"></i>${message}
+        </span>
+    `;
+}
+
 function clearWorkspace() {
+    hideSelectionPopup();
     document.getElementById("segmentsList").innerHTML = "";
     document.getElementById("progressIndicator").textContent = "0 / 0";
     document.getElementById("transcriptContainer").innerHTML = "";
-    document.getElementById("screenshotViewer").innerHTML = `
-        <span class="text-muted" id="screenshotPlaceholder">
-            <i class="bi bi-image fs-1 d-block text-center"></i>Screenshot context
-        </span>
-    `;
+    document.getElementById("screenshotViewer").innerHTML = renderScreenshotPlaceholder("Screenshot context");
     document.getElementById("annotationsList").innerHTML = "";
 }
 
@@ -129,6 +179,7 @@ function updateProgress() {
 }
 
 function selectSegment(index) {
+    hideSelectionPopup();
     currentSegmentIndex = index;
     renderSegments();
     loadSegmentDetails(index);
@@ -139,11 +190,7 @@ function loadSegmentDetails(index) {
     
     if (index < 0 || index >= segments.length) {
         document.getElementById("transcriptContainer").innerHTML = "";
-        screenshotViewer.innerHTML = `
-            <span class="text-muted" id="screenshotPlaceholder">
-                <i class="bi bi-image fs-1 d-block text-center"></i>Screenshot context
-            </span>
-        `;
+        screenshotViewer.innerHTML = renderScreenshotPlaceholder("Screenshot context");
         return;
     }
     
@@ -155,11 +202,7 @@ function loadSegmentDetails(index) {
         const imgUrl = `${backendUrl()}/researcher/participant/${currentParticipantId}/screenshot/${segment.screenshot_bestandsnaam}`;
         screenshotViewer.innerHTML = `<img src="${imgUrl}" alt="Screenshot Context" class="img-fluid border rounded" style="max-height: 100%; max-width: 100%; object-fit: contain;">`;
     } else {
-        screenshotViewer.innerHTML = `
-            <span class="text-muted" id="screenshotPlaceholder">
-                <i class="bi bi-image fs-1 d-block text-center"></i>Geen screenshot beschikbaar
-            </span>
-        `;
+        screenshotViewer.innerHTML = renderScreenshotPlaceholder("Geen screenshot beschikbaar");
     }
 }
 
@@ -172,18 +215,22 @@ function getSelectedTextInfo() {
     
     if (!container.contains(range.commonAncestorContainer)) return null;
     
-    const selectedText = range.toString().trim();
-    if (!selectedText) return null;
+    const fullText = range.toString();
+    const trimmedText = fullText.trim();
+    if (!trimmedText) return null;
     
     const preSelectionRange = range.cloneRange();
     preSelectionRange.selectNodeContents(container);
     preSelectionRange.setEnd(range.startContainer, range.startOffset);
     
-    const start = preSelectionRange.toString().length;
-    const end = start + selectedText.length;
+    const leadingSpaces = fullText.match(/^\s*/)[0].length;
+    const trailingSpaces = fullText.match(/\s*$/)[0].length;
+    
+    const start = preSelectionRange.toString().length + leadingSpaces;
+    const end = preSelectionRange.toString().length + fullText.length - trailingSpaces;
     
     return {
-        quote: range.toString(),
+        quote: trimmedText,
         start: start,
         end: end
     };
@@ -202,6 +249,35 @@ function addAnnotation(quote, start, end, label) {
     renderTranscript();
     renderAnnotationsList();
     renderSegments();
+}
+
+function handleTextSelection() {
+    activeSelection = getSelectedTextInfo();
+    const popup = document.getElementById("selectionPopup");
+    if (!activeSelection) {
+        hideSelectionPopup();
+        return;
+    }
+
+    const selection = window.getSelection();
+    const range = selection.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+
+    popup.classList.remove("d-none");
+
+    const popupWidth = popup.offsetWidth || 230;
+    const popupHeight = popup.offsetHeight || 42;
+
+    popup.style.left = `${rect.left + window.scrollX + (rect.width / 2) - (popupWidth / 2)}px`;
+    popup.style.top = `${rect.top + window.scrollY - popupHeight - 8}px`;
+}
+
+function hideSelectionPopup() {
+    activeSelection = null;
+    const popup = document.getElementById("selectionPopup");
+    if (popup) {
+        popup.classList.add("d-none");
+    }
 }
 
 function deleteAnnotation(idx) {
@@ -230,6 +306,13 @@ function escapeHtml(txt) {
         .replace(/>/g, "&gt;");
 }
 
+function wrapChunk(chunk, humanClass, llmClass) {
+    let html = escapeHtml(chunk);
+    if (llmClass) html = `<span class="${llmClass}">${html}</span>`;
+    if (humanClass) html = `<span class="${humanClass}">${html}</span>`;
+    return html;
+}
+
 function renderTranscript() {
     const transcriptContainer = document.getElementById("transcriptContainer");
     if (currentSegmentIndex < 0) {
@@ -240,7 +323,8 @@ function renderTranscript() {
     const segment = segments[currentSegmentIndex];
     const text = segment.transcript || "";
     
-    const charClasses = new Array(text.length).fill("");
+    const humanClasses = new Array(text.length).fill("");
+    const llmClasses = new Array(text.length).fill("");
     
     const humanAnns = segment.human_annotaties || [];
     for (let i = 0; i < humanAnns.length; i++) {
@@ -248,7 +332,7 @@ function renderTranscript() {
         const color = getCategoryColor(ann.label);
         for (let j = ann.start; j < ann.end; j++) {
             if (j >= 0 && j < text.length) {
-                charClasses[j] += ` bg-${color}-subtle border-bottom border-${color}`;
+                humanClasses[j] = `bg-${color}-subtle border-bottom border-${color}`;
             }
         }
     }
@@ -261,7 +345,7 @@ function renderTranscript() {
             const color = getCategoryColor(ann.label);
             for (let j = ann.start; j < ann.end; j++) {
                 if (j >= 0 && j < text.length) {
-                    charClasses[j] += ` border-bottom border-${color} border-dashed border-2`;
+                    llmClasses[j] = `border-bottom border-${color} border-dashed border-2`;
                 }
             }
         }
@@ -269,27 +353,21 @@ function renderTranscript() {
     
     let html = "";
     let currentChunk = "";
-    let currentClass = charClasses[0] || "";
+    let currentHuman = humanClasses[0] || "";
+    let currentLlm = llmClasses[0] || "";
     
     for (let i = 0; i < text.length; i++) {
-        if (charClasses[i] !== currentClass) {
-            if (currentClass.trim()) {
-                html += `<span class="${currentClass.trim()}">${escapeHtml(currentChunk)}</span>`;
-            } else {
-                html += escapeHtml(currentChunk);
-            }
+        if (humanClasses[i] !== currentHuman || llmClasses[i] !== currentLlm) {
+            html += wrapChunk(currentChunk, currentHuman, currentLlm);
             currentChunk = "";
-            currentClass = charClasses[i];
+            currentHuman = humanClasses[i];
+            currentLlm = llmClasses[i];
         }
         currentChunk += text[i];
     }
     
     if (currentChunk) {
-        if (currentClass.trim()) {
-            html += `<span class="${currentClass.trim()}">${escapeHtml(currentChunk)}</span>`;
-        } else {
-            html += escapeHtml(currentChunk);
-        }
+        html += wrapChunk(currentChunk, currentHuman, currentLlm);
     }
     
     transcriptContainer.innerHTML = html;
