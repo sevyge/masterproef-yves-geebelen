@@ -447,7 +447,11 @@ def get_participants_list() -> list[str]:
                 includeItemsFromAllDrives=True,
             ).execute()
             folders = results.get("files", [])
-            return [f['name'] for f in folders if f.get('name')]
+            names = []
+            for f in folders:
+                if f.get('name'):
+                    names.append(f['name'])
+            return names
         except Exception as e:
             logging.error(f"Error fetching participant folders from Google Drive: {e}")
             return []
@@ -489,18 +493,48 @@ def get_participant_transcript(participant_id: str) -> list[dict]:
     reader = csv.DictReader(io.StringIO(csv_text), delimiter=';')
     rows = []
     for row in reader:
-        for col in ["llm_annotaties", "human_annotaties"]:
-            val = (row.get(col) or "").strip()
-            if val:
-                try:
-                    row[col] = json.loads(val)
-                except Exception:
-                    row[col] = []
-            else:
-                row[col] = []
+        try:
+            row["llm_annotaties"] = json.loads(row.get("llm_annotaties") or "[]")
+            row["human_annotaties"] = json.loads(row.get("human_annotaties") or "[]")
+        except Exception:
+            row["llm_annotaties"] = []
+            row["human_annotaties"] = []
         rows.append(row)
         
     return rows
+
+
+def get_participant_screenshot(participant_id: str, filename: str) -> bytes:
+    """Retrieve the raw screenshot image bytes."""
+    LOCAL_STORAGE_MODE = os.getenv("LOCAL_STORAGE_MODE", "").lower() == "true"
+    
+    if LOCAL_STORAGE_MODE:
+        file_path = os.path.join(get_results_dir(), participant_id, "Screenshots", filename)
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"Screenshot {filename} not found locally.")
+        with open(file_path, "rb") as f:
+            return f.read()
+    else:
+        service = get_drive_service()
+        if service is None:
+            raise FileNotFoundError("Google Drive service not initialized")
+            
+        participant_folder = get_or_create_participant_folder(participant_id)
+        screenshot_folder = get_or_create_subfolder(participant_folder, "Screenshots")
+        
+        query = f"'{screenshot_folder}' in parents and name = '{filename}' and trashed = false"
+        results = service.files().list(
+            q=query, fields="files(id)", supportsAllDrives=True, includeItemsFromAllDrives=True
+        ).execute()
+        
+        files = results.get("files", [])
+        if len(files) == 0:
+            raise FileNotFoundError(f"Screenshot {filename} not found on Google Drive.")
+            
+        file_id = files[0]['id']
+        request = service.files().get_media(fileId=file_id)
+        return request.execute()
+
 
 
 

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, Form, BackgroundTasks, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, BackgroundTasks, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Any
 from openai import AzureOpenAI
@@ -25,6 +25,7 @@ from services.storage_service import (
     get_or_create_subfolder,
     get_participants_list,
     get_participant_transcript,
+    get_participant_screenshot,
 )
 from services.transcript_service import (
     add_silence_segment_if_needed,
@@ -464,6 +465,19 @@ def get_transcript(participant_id: str):
     except Exception as e:
         logging.error(f"Error loading transcript for participant {participant_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to load transcript")
+
+
+# Get screenshot image for a participant
+@app.get("/researcher/participant/{participant_id}/screenshot/{filename}")
+def get_screenshot(participant_id: str, filename: str):
+    try:
+        img_bytes = get_participant_screenshot(participant_id, filename)
+        return Response(content=img_bytes, media_type="image/jpeg")
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logging.error(f"Error loading screenshot: {e}")
+        raise HTTPException(status_code=500, detail="Failed to load screenshot")
 
 
 if __name__ == "__main__":
