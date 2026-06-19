@@ -26,6 +26,8 @@ from services.storage_service import (
     get_participants_list,
     get_participant_transcript,
     get_participant_screenshot,
+    upload_transcript_files,
+    create_original_transcript_backup,
 )
 from services.transcript_service import (
     add_silence_segment_if_needed,
@@ -33,6 +35,7 @@ from services.transcript_service import (
     TIMESTAMP_FORMAT,
 )
 from prompts.system_prompt import SYSTEM_PROMPT
+from post_hoc_classification import classify_participant
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(BASE_DIR, "..", ".env"))
@@ -484,8 +487,6 @@ def get_screenshot(participant_id: str, filename: str):
 @app.post("/researcher/participant/{participant_id}/annotations")
 def save_annotations(participant_id: str, updated_segments: list[dict[str, Any]]):
     try:
-        from services.storage_service import upload_transcript_files, create_original_transcript_backup
-        
         # Create a backup of the original transcript
         create_original_transcript_backup(participant_id)
         
@@ -514,6 +515,17 @@ def save_annotations(participant_id: str, updated_segments: list[dict[str, Any]]
     except Exception as e:
         logging.error(f"Error saving annotations for participant {participant_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to save annotations")
+
+
+# Run post-hoc classification for a participant
+@app.post("/researcher/participant/{participant_id}/classify_post_hoc")
+def run_post_hoc_classification(participant_id: str):
+    try:
+        classify_participant(participant_id)
+        return {"status": "success"}
+    except Exception as e:
+        logging.error(f"Error executing post-hoc classification for participant {participant_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to execute post-hoc classification: {e}")
 
 
 if __name__ == "__main__":

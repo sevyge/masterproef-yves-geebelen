@@ -9,6 +9,8 @@ import io
 import csv
 import json
 
+load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".env"))
+
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
 
@@ -27,11 +29,9 @@ def get_participant_folders(service, parent_id):
     return results.get("files", [])
 
 
-def main():
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    load_dotenv(os.path.join(BASE_DIR, "..", ".env"))
-    logging.info(".env file loaded successfully.")
-    logging.info("Starting post-hoc classification process...")
+def classify_participant(participant_id: str):
+    """Run post-hoc classification for a specific participant."""
+    logging.info(f"Starting post-hoc classification process for participant: {participant_id}")
 
     LOCAL_STORAGE_MODE = os.getenv("LOCAL_STORAGE_MODE", "").lower() == "true"
 
@@ -40,8 +40,7 @@ def main():
         # Connect to Google Drive
         service = get_drive_service()
         if not service:
-            logging.error("Failed to connect to Google Drive.")
-            return
+            raise RuntimeError("Failed to connect to Google Drive.")
         logging.info("Successfully connected to Google Drive!")
     else:
         logging.info("Running in LOCAL STORAGE MODE.")
@@ -61,21 +60,14 @@ def main():
         )
 
     if not azure_client:
-        logging.error("Failed to initialize AzureOpenAI client. Cannot perform classification.")
-        return
+        raise RuntimeError("Failed to initialize AzureOpenAI client. Cannot perform classification.")
 
     # Find Participant Folder
     parent_id = None
     if not LOCAL_STORAGE_MODE:
         parent_id = os.getenv("GOOGLE_DRIVE_FOLDER_ID")
         if not parent_id:
-            logging.error("GOOGLE_DRIVE_FOLDER_ID environment variable is not set.")
-            return
-
-    participant_id = input("Enter Participant ID or Folder Name: ").strip()
-    if not participant_id:
-        logging.error("No participant ID entered.")
-        return
+            raise RuntimeError("GOOGLE_DRIVE_FOLDER_ID environment variable is not set.")
 
     folder = None
     if not LOCAL_STORAGE_MODE:
@@ -89,16 +81,14 @@ def main():
                 break
 
         if not folder:
-            logging.error(f"Participant folder '{participant_id}' not found in Google Drive.")
-            return
+            raise RuntimeError(f"Participant folder '{participant_id}' not found in Google Drive.")
 
         logging.info(f"Processing Folder: {folder['name']} (ID: {folder['id']})")
     else:
         # Check local folder existence
         local_folder_path = os.path.join(get_results_dir(), participant_id)
         if not os.path.isdir(local_folder_path):
-            logging.error(f"Participant folder '{participant_id}' not found locally at: {os.path.abspath(local_folder_path)}")
-            return
+            raise RuntimeError(f"Participant folder '{participant_id}' not found locally at: {os.path.abspath(local_folder_path)}")
             
         logging.info(f"Processing Local Folder: {local_folder_path}")
         # Mimic folder dict structure
@@ -118,8 +108,7 @@ def main():
         files = results.get("files", [])
         
         if not files:
-            logging.info(f"No transcript CSV found in {folder['name']}.")
-            return
+            raise RuntimeError(f"No transcript CSV found in {folder['name']}.")
             
         file_id = files[0]['id']
         file_name = files[0]['name']
@@ -132,14 +121,12 @@ def main():
     else:
         csv_path = os.path.join(get_results_dir(), participant_id, file_name)
         if not os.path.exists(csv_path):
-            logging.error(f"No transcript CSV found at {csv_path}.")
-            return
+            raise RuntimeError(f"No transcript CSV found at {csv_path}.")
         logging.info(f"Found local transcript: {csv_path}")
         with open(csv_path, "r", encoding="utf-8-sig") as f:
             csv_text = f.read()
 
     reader = csv.DictReader(io.StringIO(csv_text), delimiter=';')
-    
     rows = list(reader)
     updated = False
     previous_response_id = None
@@ -215,7 +202,7 @@ def main():
                 
     # 4. If updated, upload the new CSV back to Google Drive
     if updated:
-        logging.info(f"Uploading updated {file_name} back to Google Drive...")
+        logging.info(f"Uploading updated {file_name} back...")
         
         output = io.StringIO()
         writer = csv.DictWriter(
@@ -245,6 +232,18 @@ def main():
         logging.info(f"Update complete for {folder['name']}.")
     else:
         logging.info(f"No pending classifications found for {folder['name']}.")
+
+
+def main():
+    participant_id = input("Enter Participant ID or Folder Name: ").strip()
+    if not participant_id:
+        logging.error("No participant ID entered.")
+        return
+
+    try:
+        classify_participant(participant_id)
+    except Exception as e:
+        logging.error(f"Error running classification: {e}")
 
 
 if __name__ == "__main__":

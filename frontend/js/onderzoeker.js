@@ -18,20 +18,6 @@ function setupEventListeners() {
         }
     });
 
-    document.addEventListener("keydown", function(e) {
-        if (currentSegmentIndex < 0) return;
-        
-        const labelMap = { "1": "DK", "2": "PK", "3": "CK", "4": "DOM", "5": "NONE" };
-        const label = labelMap[e.key];
-        if (!label) return;
-        
-        e.preventDefault();
-        
-        if (activeSelection) {
-            addAnnotation(activeSelection.quote, activeSelection.start, activeSelection.end, label);
-            hideSelectionPopup();
-        }
-    });
 
     document.getElementById("saveBtn").addEventListener("click", function() {
         saveAnnotations();
@@ -62,6 +48,10 @@ function setupEventListeners() {
         if (popup && !popup.contains(e.target) && !container.contains(e.target)) {
             hideSelectionPopup();
         }
+    });
+
+    document.getElementById("classifyBtn").addEventListener("click", function() {
+        runPostHocClassification();
     });
 }
 
@@ -433,5 +423,34 @@ async function saveAnnotations() {
     } finally {
         saveBtn.disabled = false;
         saveBtn.innerHTML = originalText;
+    }
+}
+
+async function runPostHocClassification() {
+    if (!currentParticipantId) return;
+    
+    const classifyBtn = document.getElementById("classifyBtn");
+    const originalText = classifyBtn.innerHTML;
+    classifyBtn.disabled = true;
+    classifyBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Classificeren...';
+
+    try {
+        const response = await fetch(`${backendUrl()}/researcher/participant/${currentParticipantId}/classify_post_hoc`, {
+            method: "POST"
+        });
+        
+        if (response.ok) {
+            alert("LLM Post-hoc Classificatie succesvol uitgevoerd!");
+            await loadParticipantData(currentParticipantId);
+        } else {
+            const err = await response.json();
+            alert("Fout bij uitvoeren classificatie: " + (err.detail || "Onbekende fout"));
+        }
+    } catch (error) {
+        console.error("Error executing post-hoc classification:", error);
+        alert("Netwerkfout bij het uitvoeren van de classificatie.");
+    } finally {
+        classifyBtn.disabled = false;
+        classifyBtn.innerHTML = originalText;
     }
 }
