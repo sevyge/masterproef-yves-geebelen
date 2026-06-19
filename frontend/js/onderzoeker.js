@@ -2,81 +2,71 @@ let currentParticipantId = null;
 let segments = [];
 let currentSegmentIndex = -1;
 let activeSelection = null;
+let researcherPassword = "";
 
-document.addEventListener("DOMContentLoaded", function() {
-    loadParticipants();
+document.addEventListener("DOMContentLoaded", () => {
     setupEventListeners();
+    attemptLogin("");
 });
 
 function setupEventListeners() {
-    document.getElementById("participantSelect").addEventListener("change", function(e) {
-        const participantId = e.target.value;
-        if (participantId) {
-            loadParticipantData(participantId);
-        } else {
-            clearWorkspace();
-        }
-    });
+    document.getElementById("participantSelect").addEventListener("change", e => e.target.value ? loadParticipantData(e.target.value) : clearWorkspace());
+    document.getElementById("saveBtn").addEventListener("click", saveAnnotations);
+    document.getElementById("toggleLlmAnnotations").addEventListener("change", renderTranscript);
+    document.getElementById("transcriptContainer").addEventListener("pointerup", handleTextSelection);
+    document.getElementById("classifyBtn").addEventListener("click", runPostHocClassification);
 
-
-    document.getElementById("saveBtn").addEventListener("click", function() {
-        saveAnnotations();
-    });
-
-    document.getElementById("toggleLlmAnnotations").addEventListener("change", function() {
-        renderTranscript();
-    });
-
-    document.getElementById("transcriptContainer").addEventListener("pointerup", function() {
-        handleTextSelection();
-    });
-
-    document.getElementById("selectionPopup").addEventListener("click", function(e) {
-        const button = e.target.closest(".popup-btn");
-        if (!button) return;
-        
-        const label = button.getAttribute("data-label");
-        if (activeSelection) {
-            addAnnotation(activeSelection.quote, activeSelection.start, activeSelection.end, label);
-        }
+    document.getElementById("selectionPopup").addEventListener("click", e => {
+        const btn = e.target.closest(".popup-btn");
+        if (btn && activeSelection) addAnnotation(activeSelection.quote, activeSelection.start, activeSelection.end, btn.dataset.label);
         hideSelectionPopup();
     });
 
-    document.addEventListener("pointerdown", function(e) {
+    document.addEventListener("pointerdown", e => {
         const popup = document.getElementById("selectionPopup");
-        const container = document.getElementById("transcriptContainer");
-        if (popup && !popup.contains(e.target) && !container.contains(e.target)) {
+        if (popup && !popup.contains(e.target) && !document.getElementById("transcriptContainer").contains(e.target)) {
             hideSelectionPopup();
         }
     });
-
-    document.getElementById("classifyBtn").addEventListener("click", function() {
-        runPostHocClassification();
-    });
 }
 
-async function loadParticipants() {
+async function attemptLogin(password) {
+    if (typeof password !== "string") {
+        password = document.getElementById("loginPassword").value;
+    }
+
     try {
-        const response = await fetch(`${backendUrl()}/researcher/participants`);
-        if (!response.ok) return;
+        const response = await fetch(`${backendUrl()}/researcher/participants`, {
+            headers: { "X-Researcher-Token": password }
+        });
 
-        const participants = await response.json();
-        let optionsHtml = '';
-        for (let i = 0; i < participants.length; i++) {
-            optionsHtml += `<option value="${participants[i]}">Participant ${participants[i]}</option>`;
+        if (response.ok) {
+            researcherPassword = password;
+            document.getElementById("loginScreen").classList.add("d-none");
+            document.getElementById("mainWorkspace").classList.remove("d-none");
+
+            const participants = await response.json();
+            const selectEl = document.getElementById("participantSelect");
+            selectEl.innerHTML = participants.map(p => `<option value="${p}">Deelnemer ${p}</option>`).join('');
+
+            if (participants[0]) {
+                loadParticipantData(participants[0]);
+            }
+            return true;
         }
-        const selectEl = document.getElementById("participantSelect");
-        selectEl.innerHTML = optionsHtml;
 
-        // Auto-select the first participant by default
-        if (participants.length > 0) {
-            selectEl.value = participants[0];
-            loadParticipantData(participants[0]);
+        if (response.status === 401) {
+            if (password !== "") alert("Ongeldig wachtwoord!");
+            return false;
         }
     } catch (error) {
-        console.error("Error loading participants:", error);
+        console.error("Error logging in:", error);
+        if (password !== "") alert("Netwerkfout bij inloggen.");
+        return false;
     }
 }
+
+window.attemptLogin = attemptLogin;
 
 async function loadParticipantData(participantId) {
     currentParticipantId = participantId;
@@ -90,7 +80,12 @@ async function loadParticipantData(participantId) {
     document.getElementById("screenshotViewer").innerHTML = spinner;
 
     try {
-        const response = await fetch(`${backendUrl()}/researcher/participant/${participantId}/transcript`);
+        const response = await fetch(`${backendUrl()}/researcher/participant/${participantId}/transcript`, {
+            headers: {
+                "X-Researcher-Token": researcherPassword
+            }
+        });
+        if (response.status === 401) return window.location.reload();
         if (!response.ok) {
             console.error("Failed to fetch participant transcript");
             clearWorkspace();
@@ -104,9 +99,9 @@ async function loadParticipantData(participantId) {
             if (!segments[i].human_annotaties) segments[i].human_annotaties = [];
             if (!segments[i].llm_annotaties) segments[i].llm_annotaties = [];
         }
-        
+
         renderSegments();
-        
+
         if (segments.length > 0) {
             selectSegment(0);
         }
@@ -142,7 +137,7 @@ function renderSegments() {
         const badgeHtml = count > 0
             ? `<span class="badge ${isActive ? 'bg-light text-dark' : 'bg-secondary text-white'} rounded-circle">${count}</span>`
             : `<i class="bi bi-circle ${isActive ? 'text-white-50' : 'text-muted'}"></i>`;
-            
+
         html += `
             <div class="list-group-item list-group-item-action p-3 ${isActive ? 'active bg-danger border-danger' : ''}" 
                  style="cursor: pointer;" onclick="selectSegment(${i})">
@@ -177,19 +172,19 @@ function selectSegment(index) {
 
 function loadSegmentDetails(index) {
     const screenshotViewer = document.getElementById("screenshotViewer");
-    
+
     if (index < 0 || index >= segments.length) {
         document.getElementById("transcriptContainer").innerHTML = "";
         screenshotViewer.innerHTML = renderScreenshotPlaceholder("Screenshot context");
         return;
     }
-    
+
     renderTranscript();
     renderAnnotationsList();
-    
+
     const segment = segments[index];
     if (segment.screenshot_bestandsnaam) {
-        const imgUrl = `${backendUrl()}/researcher/participant/${currentParticipantId}/screenshot/${segment.screenshot_bestandsnaam}`;
+        const imgUrl = `${backendUrl()}/researcher/participant/${currentParticipantId}/screenshot/${segment.screenshot_bestandsnaam}?token=${encodeURIComponent(researcherPassword)}`;
         screenshotViewer.innerHTML = `<img src="${imgUrl}" alt="Screenshot Context" class="img-fluid border rounded" style="max-height: 100%; max-width: 100%; object-fit: contain;">`;
     } else {
         screenshotViewer.innerHTML = renderScreenshotPlaceholder("Geen screenshot beschikbaar");
@@ -199,26 +194,26 @@ function loadSegmentDetails(index) {
 function getSelectedTextInfo() {
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) return null;
-    
+
     const range = selection.getRangeAt(0);
     const container = document.getElementById("transcriptContainer");
-    
+
     if (!container.contains(range.commonAncestorContainer)) return null;
-    
+
     const fullText = range.toString();
     const trimmedText = fullText.trim();
     if (!trimmedText) return null;
-    
+
     const preSelectionRange = range.cloneRange();
     preSelectionRange.selectNodeContents(container);
     preSelectionRange.setEnd(range.startContainer, range.startOffset);
-    
+
     const leadingSpaces = fullText.match(/^\s*/)[0].length;
     const trailingSpaces = fullText.match(/\s*$/)[0].length;
-    
+
     const start = preSelectionRange.toString().length + leadingSpaces;
     const end = preSelectionRange.toString().length + fullText.length - trailingSpaces;
-    
+
     return {
         quote: trimmedText,
         start: start,
@@ -234,7 +229,7 @@ function addAnnotation(quote, start, end, label) {
         start: start,
         end: end
     });
-    
+
     window.getSelection().removeAllRanges();
     renderTranscript();
     renderAnnotationsList();
@@ -272,10 +267,10 @@ function hideSelectionPopup() {
 
 function deleteAnnotation(idx) {
     if (currentSegmentIndex < 0) return;
-    
+
     const segment = segments[currentSegmentIndex];
     segment.human_annotaties.splice(idx, 1);
-    
+
     renderTranscript();
     renderAnnotationsList();
     renderSegments();
@@ -309,13 +304,13 @@ function renderTranscript() {
         transcriptContainer.innerHTML = "";
         return;
     }
-    
+
     const segment = segments[currentSegmentIndex];
     const text = segment.transcript || "";
-    
+
     const humanClasses = new Array(text.length).fill("");
     const llmClasses = new Array(text.length).fill("");
-    
+
     const humanAnns = segment.human_annotaties || [];
     for (let i = 0; i < humanAnns.length; i++) {
         const ann = humanAnns[i];
@@ -326,7 +321,7 @@ function renderTranscript() {
             }
         }
     }
-    
+
     const showLlm = document.getElementById("toggleLlmAnnotations").checked;
     if (showLlm && segment.llm_annotaties) {
         const llmAnns = segment.llm_annotaties;
@@ -340,12 +335,12 @@ function renderTranscript() {
             }
         }
     }
-    
+
     let html = "";
     let currentChunk = "";
     let currentHuman = humanClasses[0] || "";
     let currentLlm = llmClasses[0] || "";
-    
+
     for (let i = 0; i < text.length; i++) {
         if (humanClasses[i] !== currentHuman || llmClasses[i] !== currentLlm) {
             html += wrapChunk(currentChunk, currentHuman, currentLlm);
@@ -355,26 +350,26 @@ function renderTranscript() {
         }
         currentChunk += text[i];
     }
-    
+
     if (currentChunk) {
         html += wrapChunk(currentChunk, currentHuman, currentLlm);
     }
-    
+
     transcriptContainer.innerHTML = html;
 }
 
 function renderAnnotationsList() {
     if (currentSegmentIndex < 0) return;
-    
+
     const segment = segments[currentSegmentIndex];
     const annotations = segment.human_annotaties || [];
     let html = "";
-    
+
     for (let i = 0; i < annotations.length; i++) {
         const ann = annotations[i];
         const color = getCategoryColor(ann.label);
         const textClass = ann.label === "DK" ? "text-dark" : "text-white";
-        
+
         html += `
             <div class="card mb-2 border-light shadow-sm">
                 <div class="card-body p-2 d-flex align-items-center justify-content-between">
@@ -397,7 +392,7 @@ window.selectSegment = selectSegment;
 
 async function saveAnnotations() {
     if (!currentParticipantId || segments.length === 0) return;
-    
+
     const saveBtn = document.getElementById("saveBtn");
     const originalText = saveBtn.innerHTML;
     saveBtn.disabled = true;
@@ -407,16 +402,15 @@ async function saveAnnotations() {
         const response = await fetch(`${backendUrl()}/researcher/participant/${currentParticipantId}/annotations`, {
             method: "POST",
             headers: {
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
+                "X-Researcher-Token": researcherPassword
             },
             body: JSON.stringify(segments)
         });
-        
-        if (response.ok) {
-            alert("Annotaties succesvol opgeslagen!");
-        } else {
-            alert("Fout bij het opslaan van annotaties.");
-        }
+
+        if (response.status === 401) return window.location.reload();
+
+        alert(response.ok ? "Annotaties succesvol opgeslagen!" : "Fout bij het opslaan van annotaties.");
     } catch (error) {
         console.error("Error saving annotations:", error);
         alert("Netwerkfout bij het opslaan.");
@@ -428,7 +422,7 @@ async function saveAnnotations() {
 
 async function runPostHocClassification() {
     if (!currentParticipantId) return;
-    
+
     const classifyBtn = document.getElementById("classifyBtn");
     const originalText = classifyBtn.innerHTML;
     classifyBtn.disabled = true;
@@ -436,9 +430,14 @@ async function runPostHocClassification() {
 
     try {
         const response = await fetch(`${backendUrl()}/researcher/participant/${currentParticipantId}/classify_post_hoc`, {
-            method: "POST"
+            method: "POST",
+            headers: {
+                "X-Researcher-Token": researcherPassword
+            }
         });
-        
+
+        if (response.status === 401) return window.location.reload();
+
         if (response.ok) {
             alert("LLM Post-hoc Classificatie succesvol uitgevoerd!");
             await loadParticipantData(currentParticipantId);

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, Form, BackgroundTasks, HTTPException, Response
+from fastapi import FastAPI, UploadFile, File, Form, BackgroundTasks, HTTPException, Response, Header, Query, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Any
 from openai import AzureOpenAI
@@ -51,6 +51,7 @@ AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION")
 TRANSCRIBE_DEPLOYMENT = os.getenv("TRANSCRIBE_DEPLOYMENT", "whisper-1")
 CHAT_DEPLOYMENT = os.getenv("CHAT_DEPLOYMENT", "")
 REALTIME_CLASSIFICATION = os.getenv("REALTIME_CLASSIFICATION", "false").lower() == "true"
+RESEARCHER_TOKEN = os.getenv("RESEARCHER_TOKEN")
 
 raw_origins = [
     os.getenv("ALLOWED_ORIGIN_LOCAL"),
@@ -76,7 +77,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Content-Type"],
+    allow_headers=["Content-Type", "X-Researcher-Token"],
 )
 
 azure_client = None
@@ -448,9 +449,20 @@ def chat(
 
 
 # Researcher tool endpoints
+def verify_researcher_token(
+    x_researcher_token: str | None = Header(None),
+    token: str | None = Query(None)
+):
+    if not RESEARCHER_TOKEN:
+        return
+    provided_token = x_researcher_token or token
+    if provided_token != RESEARCHER_TOKEN:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+
 # Get participant folder names
 @app.get("/researcher/participants")
-def list_participants():
+def list_participants(token: None = Depends(verify_researcher_token)):
     try:
         return get_participants_list()
     except Exception as e:
@@ -460,7 +472,7 @@ def list_participants():
 
 # Get transcript segments for a participant
 @app.get("/researcher/participant/{participant_id}/transcript")
-def get_transcript(participant_id: str):
+def get_transcript(participant_id: str, token: None = Depends(verify_researcher_token)):
     try:
         return get_participant_transcript(participant_id)
     except FileNotFoundError as e:
@@ -472,7 +484,7 @@ def get_transcript(participant_id: str):
 
 # Get screenshot image for a participant
 @app.get("/researcher/participant/{participant_id}/screenshot/{filename}")
-def get_screenshot(participant_id: str, filename: str):
+def get_screenshot(participant_id: str, filename: str, token: None = Depends(verify_researcher_token)):
     try:
         img_bytes = get_participant_screenshot(participant_id, filename)
         return Response(content=img_bytes, media_type="image/jpeg")
@@ -485,7 +497,7 @@ def get_screenshot(participant_id: str, filename: str):
 
 # Save annotations for a participant
 @app.post("/researcher/participant/{participant_id}/annotations")
-def save_annotations(participant_id: str, updated_segments: list[dict[str, Any]]):
+def save_annotations(participant_id: str, updated_segments: list[dict[str, Any]], token: None = Depends(verify_researcher_token)):
     try:
         # Create a backup of the original transcript
         create_original_transcript_backup(participant_id)
@@ -519,7 +531,7 @@ def save_annotations(participant_id: str, updated_segments: list[dict[str, Any]]
 
 # Run post-hoc classification for a participant
 @app.post("/researcher/participant/{participant_id}/classify_post_hoc")
-def run_post_hoc_classification(participant_id: str):
+def run_post_hoc_classification(participant_id: str, token: None = Depends(verify_researcher_token)):
     try:
         classify_participant(participant_id)
         return {"status": "success"}

@@ -99,7 +99,7 @@ window.addEventListener('resize', () => {
 
     if (oldData) {
         const img = new Image();
-        img.onload = function () {
+        img.onload = () => {
             signatureCtx.drawImage(img, 0, 0, signatureCanvas.clientWidth, signatureCanvas.clientHeight);
         };
         img.src = oldData;
@@ -109,7 +109,7 @@ window.addEventListener('resize', () => {
 resizeCanvas();
 validateForm();
 
-document.getElementById('consentForm').addEventListener('submit', async function (e) {
+document.getElementById('consentForm').addEventListener('submit', async e => {
     e.preventDefault();
 
     const submitSpinner = document.getElementById('submitSpinner');
