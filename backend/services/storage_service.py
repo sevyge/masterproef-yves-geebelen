@@ -232,6 +232,12 @@ def upload_to_google_drive(
         os.makedirs(local_dir, exist_ok=True)
 
         file_path = os.path.join(local_dir, filename)
+        
+        # Verify resolved path is strictly inside the results directory
+        base_dir = os.path.abspath(get_results_dir())
+        abs_file_path = os.path.abspath(file_path)
+        if os.path.commonpath([base_dir, abs_file_path]) != base_dir:
+            raise PermissionError("Access denied: path traversal detected.")
 
         if isinstance(file_stream, (bytes, bytearray)):
             with open(file_path, "wb") as f:
@@ -468,6 +474,13 @@ def get_participant_transcript(participant_id: str) -> list[dict]:
     # Fetch CSV content
     if LOCAL_STORAGE_MODE:
         file_path = os.path.join(get_results_dir(), participant_id, f"transcript_{participant_id}.csv")
+        
+        # Verify resolved path is strictly inside the results directory
+        base_dir = os.path.abspath(get_results_dir())
+        abs_file_path = os.path.abspath(file_path)
+        if os.path.commonpath([base_dir, abs_file_path]) != base_dir:
+            raise PermissionError("Access denied: path traversal detected.")
+            
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"Transcript CSV not found for participant {participant_id}")
         with open(file_path, "r", encoding="utf-8-sig") as f:
@@ -511,6 +524,13 @@ def get_participant_screenshot(participant_id: str, filename: str) -> bytes:
     
     if LOCAL_STORAGE_MODE:
         file_path = os.path.join(get_results_dir(), participant_id, "Screenshots", filename)
+        
+        # Verify resolved path is strictly inside the results directory
+        base_dir = os.path.abspath(get_results_dir())
+        abs_file_path = os.path.abspath(file_path)
+        if os.path.commonpath([base_dir, abs_file_path]) != base_dir:
+            raise PermissionError("Access denied: path traversal detected.")
+            
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"Screenshot {filename} not found locally.")
         with open(file_path, "rb") as f:
@@ -551,6 +571,14 @@ def create_original_transcript_backup(participant_id: str):
         file_path = os.path.join(local_dir, filename)
         backup_path = os.path.join(local_dir, backup_filename)
         
+        # Verify resolved path is strictly inside the results directory
+        base_dir = os.path.abspath(get_results_dir())
+        abs_file_path = os.path.abspath(file_path)
+        abs_backup_path = os.path.abspath(backup_path)
+        if (os.path.commonpath([base_dir, abs_file_path]) != base_dir or 
+            os.path.commonpath([base_dir, abs_backup_path]) != base_dir):
+            raise PermissionError("Access denied: path traversal detected.")
+            
         if os.path.exists(file_path) and not os.path.exists(backup_path):
             try:
                 shutil.copyfile(file_path, backup_path)

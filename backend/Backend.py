@@ -9,6 +9,7 @@ import time
 import os
 import logging
 import json
+import re
 from dotenv import load_dotenv
 from schemas.chat import ChatClassification
 from utils.signature_utils import (
@@ -52,6 +53,14 @@ TRANSCRIBE_DEPLOYMENT = os.getenv("TRANSCRIBE_DEPLOYMENT", "whisper-1")
 CHAT_DEPLOYMENT = os.getenv("CHAT_DEPLOYMENT", "")
 REALTIME_CLASSIFICATION = os.getenv("REALTIME_CLASSIFICATION", "false").lower() == "true"
 RESEARCHER_TOKEN = os.getenv("RESEARCHER_TOKEN")
+
+def validate_participant_id(participant_id: str):
+    if not re.match(r"^[a-zA-Z0-9_-]+$", participant_id):
+        raise HTTPException(status_code=400, detail="Invalid participant ID format")
+
+def validate_filename(filename: str):
+    if not re.match(r"^[a-zA-Z0-9_.-]+$", filename) or ".." in filename:
+        raise HTTPException(status_code=400, detail="Invalid filename format")
 
 raw_origins = [
     os.getenv("ALLOWED_ORIGIN_LOCAL"),
@@ -120,6 +129,7 @@ def consent(
         participant_id = get_next_participant_id()
         logging.info(f"Generated new participant ID: {participant_id}")
     else:
+        validate_participant_id(participant_id)
         logging.info(f"Received consent from participant: {participant_id}")
 
     if not signature_data:
@@ -182,6 +192,7 @@ def submit_vragenlijst(
     tools: list[str] = Form(default=[]),
     rol: str = Form(default="Niet gedefinieerd"),
 ):
+    validate_participant_id(participant_id)
     logging.info(f"Received vragenlijst from participant: {participant_id}")
 
     try:
@@ -199,6 +210,7 @@ def submit_vragenlijst(
 # Upload video endpoint
 @app.post("/upload-video")
 def upload_video(video: UploadFile = File(...), participant_id: str = Form(...)):
+    validate_participant_id(participant_id)
     # input validation
     if video.content_type not in ["video/webm", "video/mp4"]:
         return {"error": "Invalid file type. Only .webm and .mp4 are allowed."}
@@ -221,10 +233,11 @@ def upload_video(video: UploadFile = File(...), participant_id: str = Form(...))
 
         return {"message": "Video uploaded to Google Drive successfully", **result}
     except FileNotFoundError as e:
-        return {"error": str(e)}
+        logging.error(f"Upload directory not found during video upload: {e}")
+        return {"error": "Upload directory not found"}
     except Exception as e:
         logging.error(f"Error uploading video: {e}")
-        return {"error": str(e)}
+        return {"error": "Failed to upload video"}
 
 
 @app.post("/transcribe")
@@ -318,6 +331,7 @@ def chat(
     end_time: str = Form(None),
     skip_silence_entry: bool = Form(False),
 ):
+    validate_participant_id(participant_id)
     logging.info(f"Received chat prompt: {transcript}")
 
     user_content: list[dict[str, str]] = [{"type": "input_text", "text": transcript}]
@@ -454,7 +468,12 @@ def verify_researcher_token(
     token: str | None = Query(None)
 ):
     if not RESEARCHER_TOKEN:
-        return
+        LOCAL_STORAGE_MODE = os.getenv("LOCAL_STORAGE_MODE", "").lower() == "true"
+        if LOCAL_STORAGE_MODE:
+            return
+        else:
+            logging.error("RESEARCHER_TOKEN environment variable is not configured in production mode!")
+            raise HTTPException(status_code=500, detail="Server configuration error")
     provided_token = x_researcher_token or token
     if provided_token != RESEARCHER_TOKEN:
         raise HTTPException(status_code=401, detail="Unauthorized")
@@ -473,10 +492,11 @@ def list_participants(token: None = Depends(verify_researcher_token)):
 # Get transcript segments for a participant
 @app.get("/researcher/participant/{participant_id}/transcript")
 def get_transcript(participant_id: str, token: None = Depends(verify_researcher_token)):
+    validate_participant_id(participant_id)
     try:
         return get_participant_transcript(participant_id)
     except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail="Transcript not found")
     except Exception as e:
         logging.error(f"Error loading transcript for participant {participant_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to load transcript")
@@ -485,11 +505,13 @@ def get_transcript(participant_id: str, token: None = Depends(verify_researcher_
 # Get screenshot image for a participant
 @app.get("/researcher/participant/{participant_id}/screenshot/{filename}")
 def get_screenshot(participant_id: str, filename: str, token: None = Depends(verify_researcher_token)):
+    validate_participant_id(participant_id)
+    validate_filename(filename)
     try:
         img_bytes = get_participant_screenshot(participant_id, filename)
         return Response(content=img_bytes, media_type="image/jpeg")
     except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail="Screenshot not found")
     except Exception as e:
         logging.error(f"Error loading screenshot: {e}")
         raise HTTPException(status_code=500, detail="Failed to load screenshot")
@@ -498,6 +520,7 @@ def get_screenshot(participant_id: str, filename: str, token: None = Depends(ver
 # Save annotations for a participant
 @app.post("/researcher/participant/{participant_id}/annotations")
 def save_annotations(participant_id: str, updated_segments: list[dict[str, Any]], token: None = Depends(verify_researcher_token)):
+    validate_participant_id(participant_id)
     try:
         # Create a backup of the original transcript
         create_original_transcript_backup(participant_id)
@@ -532,12 +555,16 @@ def save_annotations(participant_id: str, updated_segments: list[dict[str, Any]]
 # Run post-hoc classification for a participant
 @app.post("/researcher/participant/{participant_id}/classify_post_hoc")
 def run_post_hoc_classification(participant_id: str, token: None = Depends(verify_researcher_token)):
+    validate_participant_id(participant_id)
     try:
+        # Create a backup of the original transcript if it doesn't exist yet
+        create_original_transcript_backup(participant_id)
+        
         classify_participant(participant_id)
         return {"status": "success"}
     except Exception as e:
         logging.error(f"Error executing post-hoc classification for participant {participant_id}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to execute post-hoc classification: {e}")
+        raise HTTPException(status_code=500, detail="Failed to execute post-hoc classification")
 
 
 if __name__ == "__main__":

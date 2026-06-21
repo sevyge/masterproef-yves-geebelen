@@ -11,8 +11,6 @@ import json
 
 load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".env"))
 
-logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
-
 
 def get_participant_folders(service, parent_id):
     """Retrieve all participant folders inside the root project folder."""
@@ -120,6 +118,13 @@ def classify_participant(participant_id: str):
         csv_text = file_content.decode('utf-8-sig')
     else:
         csv_path = os.path.join(get_results_dir(), participant_id, file_name)
+        
+        # Verify resolved path is strictly inside the results directory
+        base_dir = os.path.abspath(get_results_dir())
+        abs_csv_path = os.path.abspath(csv_path)
+        if os.path.commonpath([base_dir, abs_csv_path]) != base_dir:
+            raise PermissionError("Access denied: path traversal detected.")
+            
         if not os.path.exists(csv_path):
             raise RuntimeError(f"No transcript CSV found at {csv_path}.")
         logging.info(f"Found local transcript: {csv_path}")
@@ -247,4 +252,5 @@ def main():
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
     main()
