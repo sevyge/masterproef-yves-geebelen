@@ -1,5 +1,7 @@
-from fastapi import FastAPI, UploadFile, File, Form, BackgroundTasks, HTTPException, Response, Header, Query, Depends
+from fastapi import FastAPI, UploadFile, File, Form, BackgroundTasks, HTTPException, Response, Header, Query, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
+from collections import defaultdict
 from typing import Any
 from openai import AzureOpenAI
 from groq import Groq
@@ -88,6 +90,14 @@ app.add_middleware(
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Content-Type", "X-Researcher-Token"],
 )
+
+@app.middleware("http")
+async def enforce_https_middleware(request: Request, call_next):
+    proto = request.headers.get("x-forwarded-proto")
+    if proto == "http":
+        url = request.url.replace(scheme="https")
+        return RedirectResponse(url, status_code=307)
+    return await call_next(request)
 
 azure_client = None
 if AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT:
@@ -463,10 +473,27 @@ def chat(
 
 
 # Researcher tool endpoints
+failed_attempts: dict[str, list[float]] = defaultdict(list)
+blocked_ips: dict[str, float] = {}
+
 def verify_researcher_token(
-    x_researcher_token: str | None = Header(None),
-    token: str | None = Query(None)
+    request: Request,
+    x_researcher_token: str | None = Header(None)
 ):
+    client_ip = request.client.host if request.client else "unknown"
+    now = time.time()
+    
+    # Check if blocked
+    if client_ip in blocked_ips:
+        blocked_until = blocked_ips[client_ip]
+        if now < blocked_until:
+            raise HTTPException(
+                status_code=429,
+                detail="Te veel mislukte inlogpogingen. Toegang is 15 minuten geblokkeerd."
+            )
+        else:
+            del blocked_ips[client_ip]
+
     if not RESEARCHER_TOKEN:
         LOCAL_STORAGE_MODE = os.getenv("LOCAL_STORAGE_MODE", "").lower() == "true"
         if LOCAL_STORAGE_MODE:
@@ -474,8 +501,20 @@ def verify_researcher_token(
         else:
             logging.error("RESEARCHER_TOKEN environment variable is not configured in production mode!")
             raise HTTPException(status_code=500, detail="Server configuration error")
-    provided_token = x_researcher_token or token
-    if provided_token != RESEARCHER_TOKEN:
+            
+    if x_researcher_token != RESEARCHER_TOKEN:
+        # Track failed attempt
+        failed_attempts[client_ip] = [t for t in failed_attempts[client_ip] if now - t < 60]
+        failed_attempts[client_ip].append(now)
+        
+        if len(failed_attempts[client_ip]) >= 5:
+            blocked_ips[client_ip] = now + 900  # block for 15 minutes
+            logging.warning(f"IP {client_ip} blocked for 15 minutes due to repeated failed authentication attempts.")
+            raise HTTPException(
+                status_code=429,
+                detail="Te veel mislukte pogingen. Toegang is 15 minuten geblokkeerd."
+            )
+            
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 

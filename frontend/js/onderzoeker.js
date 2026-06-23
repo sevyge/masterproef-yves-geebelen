@@ -3,6 +3,7 @@ let segments = [];
 let currentSegmentIndex = -1;
 let activeSelection = null;
 let researcherPassword = "";
+let activeScreenshotUrl = null;
 
 document.addEventListener("DOMContentLoaded", () => {
     setupEventListeners();
@@ -35,6 +36,12 @@ async function attemptLogin(password) {
         password = document.getElementById("loginPassword").value;
     }
 
+    const errorEl = document.getElementById("loginError");
+    if (errorEl) {
+        errorEl.textContent = "";
+        errorEl.classList.add("d-none");
+    }
+
     try {
         const response = await fetch(`${backendUrl()}/researcher/participants`, {
             headers: { "X-Researcher-Token": password }
@@ -55,14 +62,39 @@ async function attemptLogin(password) {
             return true;
         }
 
-        if (response.status === 401) {
-            if (password !== "") alert("Ongeldig wachtwoord!");
+        if (response.status === 429) {
+            if (password !== "") {
+                try {
+                    const errData = await response.json();
+                    showLoginError(errData.detail || "Te veel pogingen. Toegang is 15 minuten geblokkeerd.");
+                } catch {
+                    showLoginError("Te veel pogingen. Toegang is 15 minuten geblokkeerd.");
+                }
+            }
             return false;
         }
+
+        if (response.status === 401) {
+            if (password !== "") showLoginError("Ongeldig wachtwoord!");
+            return false;
+        }
+
+        showLoginError("Fout bij inloggen.");
+        return false;
     } catch (error) {
         console.error("Error logging in:", error);
-        if (password !== "") alert("Netwerkfout bij inloggen.");
+        if (password !== "") showLoginError("Netwerkfout bij inloggen.");
         return false;
+    }
+}
+
+function showLoginError(message) {
+    const errorEl = document.getElementById("loginError");
+    if (errorEl) {
+        errorEl.textContent = message;
+        errorEl.classList.remove("d-none");
+    } else {
+        alert(message);
     }
 }
 
@@ -121,6 +153,10 @@ function renderScreenshotPlaceholder(message) {
 
 function clearWorkspace() {
     hideSelectionPopup();
+    if (activeScreenshotUrl) {
+        URL.revokeObjectURL(activeScreenshotUrl);
+        activeScreenshotUrl = null;
+    }
     document.getElementById("segmentsList").innerHTML = "";
     document.getElementById("progressIndicator").textContent = "0 / 0";
     document.getElementById("transcriptContainer").innerHTML = "";
@@ -170,7 +206,7 @@ function selectSegment(index) {
     loadSegmentDetails(index);
 }
 
-function loadSegmentDetails(index) {
+async function loadSegmentDetails(index) {
     const screenshotViewer = document.getElementById("screenshotViewer");
 
     if (index < 0 || index >= segments.length) {
@@ -184,8 +220,38 @@ function loadSegmentDetails(index) {
 
     const segment = segments[index];
     if (segment.screenshot_bestandsnaam) {
-        const imgUrl = `${backendUrl()}/researcher/participant/${currentParticipantId}/screenshot/${segment.screenshot_bestandsnaam}?token=${encodeURIComponent(researcherPassword)}`;
-        screenshotViewer.innerHTML = `<img src="${imgUrl}" alt="Screenshot Context" class="img-fluid border rounded" style="max-height: 100%; max-width: 100%; object-fit: contain;">`;
+        const segmentIndexAtRequest = index;
+        const spinner = '<div class="text-center py-5"><div class="spinner-border spinner-border-sm text-secondary" role="status"></div></div>';
+        screenshotViewer.innerHTML = spinner;
+
+        try {
+            const response = await fetch(`${backendUrl()}/researcher/participant/${currentParticipantId}/screenshot/${segment.screenshot_bestandsnaam}`, {
+                headers: {
+                    "X-Researcher-Token": researcherPassword
+                }
+            });
+            if (response.status === 401) return window.location.reload();
+            if (!response.ok) {
+                if (currentSegmentIndex === segmentIndexAtRequest) {
+                    screenshotViewer.innerHTML = renderScreenshotPlaceholder("Fout bij laden screenshot");
+                }
+                return;
+            }
+            const blob = await response.blob();
+            if (currentSegmentIndex !== segmentIndexAtRequest) {
+                return;
+            }
+            if (activeScreenshotUrl) {
+                URL.revokeObjectURL(activeScreenshotUrl);
+            }
+            activeScreenshotUrl = URL.createObjectURL(blob);
+            screenshotViewer.innerHTML = `<img src="${activeScreenshotUrl}" alt="Screenshot Context" class="img-fluid border rounded" style="max-height: 100%; max-width: 100%; object-fit: contain;">`;
+        } catch (error) {
+            console.error("Error loading screenshot:", error);
+            if (currentSegmentIndex === segmentIndexAtRequest) {
+                screenshotViewer.innerHTML = renderScreenshotPlaceholder("Netwerkfout bij laden screenshot");
+            }
+        }
     } else {
         screenshotViewer.innerHTML = renderScreenshotPlaceholder("Geen screenshot beschikbaar");
     }
