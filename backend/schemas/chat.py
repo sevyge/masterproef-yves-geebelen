@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 
 
 class ClassifiedSegment(BaseModel):
-    label: Literal["DK", "PK", "CK", "DOM", "NONE"]
+    label: Literal["DK", "PK", "CK", "DOM"]
     exact_quote: str = Field(
         description="The exact word-for-word quote from the transcript that corresponds to this label."
     )
