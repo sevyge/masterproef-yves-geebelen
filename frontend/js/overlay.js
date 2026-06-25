@@ -11,6 +11,7 @@ pipButton.addEventListener('click', async () => {
     video.srcObject = videoStream;
     video.play();
 
+    setupScreenStreamEndedListener(videoStream);
   } catch (err) {
     alert('Schermopname kon niet worden gestart. Controleer of je browser toestemming heeft gegeven.');
     return;
@@ -73,7 +74,16 @@ pipButton.addEventListener('click', async () => {
 
     sessionButton.onclick = async () => {
       try {
-        if (window.vadEnabled) {
+        if (sessionButton.dataset.sessionState === 'restart_screen') {
+          const success = await window.requestNewScreenStream();
+          if (success) {
+            if (window.unexpectedScreenShareStopActive && window.enableVoiceActivation) {
+              await window.enableVoiceActivation();
+            } else if (window.resetToPreStartState) {
+              window.resetToPreStartState();
+            }
+          }
+        } else if (window.vadEnabled) {
           await window.disableVoiceActivation(true);
         } else if (window.enableVoiceActivation) {
           await window.enableVoiceActivation();
@@ -124,4 +134,36 @@ window.captureCurrentScreenshot = () => {
   }
   return takeScreenshot(video);
 };
+
+function setupScreenStreamEndedListener(videoStream) {
+  const track = videoStream.getVideoTracks()[0];
+  if (track) {
+    track.addEventListener('ended', () => {
+      if (window.vadEnabled && window.handleUnexpectedScreenShareStop) {
+        window.handleUnexpectedScreenShareStop();
+      } else {
+        if (window.showRestartScreenSharingUI) {
+          window.showRestartScreenSharingUI(false);
+        }
+      }
+    });
+  }
+}
+
+async function requestNewScreenStream() {
+  try {
+    const videoStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+    window.videoStream = videoStream;
+    if (video) {
+      video.srcObject = videoStream;
+      video.play();
+    }
+    setupScreenStreamEndedListener(videoStream);
+    return true;
+  } catch (err) {
+    alert('Schermopname kon niet worden gestart. Controleer of je browser toestemming heeft gegeven.');
+    return false;
+  }
+}
+window.requestNewScreenStream = requestNewScreenStream;
 

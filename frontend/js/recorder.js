@@ -16,6 +16,8 @@ let vadController = null;
 let vadMicStream = null;
 let shouldUploadScreenRecording = false;
 let silencePromptTimeout = null;
+let initialMicCheckTimeout = null;
+let hasSpokenOnce = false;
 let hasSpokenSilencePrompt = false;
 const UPLOAD_MAX_RETRIES = 3;
 const UPLOAD_RETRY_DELAY_MS = 2000;
@@ -32,11 +34,23 @@ function clearSilencePromptState() {
         clearTimeout(silencePromptTimeout);
         silencePromptTimeout = null;
     }
+    if (initialMicCheckTimeout) {
+        clearTimeout(initialMicCheckTimeout);
+        initialMicCheckTimeout = null;
+    }
 
     if (window.silencePromptElement) {
-        window.silencePromptElement.innerHTML = '';
-        window.silencePromptElement.classList.remove('alert-warning', 'pulsing-alert');
-        window.silencePromptElement.classList.add('alert-secondary');
+        window.silencePromptElement.classList.remove('alert-warning', 'alert-danger', 'alert-success', 'pulsing-alert', 'd-none');
+        window.silencePromptElement.classList.add('alert-secondary', 'd-flex');
+        
+        if (vadEnabled) {
+            window.silencePromptElement.innerHTML = `
+                <span style="display: inline-block; width: 8px; height: 8px; background-color: #198754; border-radius: 50%; margin-right: 6px;"></span>
+                <span style="font-size: 12px; color: #6c757d;">Sessie actief</span>
+            `;
+        } else {
+            window.silencePromptElement.innerHTML = '';
+        }
     }
 }
 
@@ -134,10 +148,18 @@ function startScreenRecording(sessionAudioStream) {
             setUploadStatus('uploading');
             await uploadScreenRecording(blob);
             console.log('Video uploaded successfully');
-            setUploadStatus('success');
+            if (window.unexpectedScreenShareStopActive) {
+                showRestartScreenSharingUI(false);
+            } else {
+                setUploadStatus('success');
+            }
         } catch (error) {
             console.error('Error uploading video:', error);
-            setUploadStatus('error');
+            if (window.unexpectedScreenShareStopActive) {
+                showRestartScreenSharingUI(true);
+            } else {
+                setUploadStatus('error');
+            }
         } finally {
             shouldUploadScreenRecording = false;
         }
@@ -237,6 +259,9 @@ async function enableVoiceActivation() {
         return true;
     }
 
+    window.unexpectedScreenShareStopActive = false;
+    hasSpokenOnce = false;
+
     const participantId = localStorage.getItem('participant_id');
     if (!participantId) {
         throw new Error('participant_id ontbreekt. Herstart via het toestemmingsformulier.');
@@ -257,6 +282,13 @@ async function enableVoiceActivation() {
         onSpeechStart: async () => {
             if (!vadEnabled || isRecording) {
                 return;
+            }
+            if (!hasSpokenOnce) {
+                hasSpokenOnce = true;
+                if (initialMicCheckTimeout) {
+                    clearTimeout(initialMicCheckTimeout);
+                    initialMicCheckTimeout = null;
+                }
             }
             clearSilencePromptState();
             hasSpokenSilencePrompt = false;
@@ -283,7 +315,7 @@ async function enableVoiceActivation() {
                 if (window.silencePromptElement) {
                     window.silencePromptElement.classList.remove('alert-secondary');
                     window.silencePromptElement.classList.add('alert-warning', 'pulsing-alert');
-                    window.silencePromptElement.innerHTML = '🎤 <strong>Vergeet niet hardop te denken!</strong>';
+                    window.silencePromptElement.innerHTML = '<strong>Vergeet niet hardop te denken!</strong>';
                 }
             }, SILENCE_PROMPT_DELAY_MS);
         }
@@ -293,14 +325,24 @@ async function enableVoiceActivation() {
     vadEnabled = true;
     window.vadEnabled = vadEnabled;
     startScreenRecording(vadMicStream);
-    if (window.silencePromptElement) {
-        window.silencePromptElement.classList.remove('d-none');
-        window.silencePromptElement.classList.add('d-flex');
-    }
+    clearSilencePromptState();
     if (window.recordButton) {
         window.recordButton.textContent = 'Onderzoek stoppen';
+        window.recordButton.className = 'btn btn-danger';
         window.recordButton.dataset.sessionState = 'active';
     }
+
+    initialMicCheckTimeout = setTimeout(() => {
+        if (!vadEnabled || hasSpokenOnce) {
+            return;
+        }
+        if (window.silencePromptElement) {
+            window.silencePromptElement.classList.remove('alert-secondary', 'alert-warning', 'pulsing-alert');
+            window.silencePromptElement.classList.add('alert-danger');
+            window.silencePromptElement.innerHTML = '<strong>De microfoon lijkt niet te werken. Controleer of je microfoon correct is aangesloten en niet gedempt is.</strong>';
+        }
+    }, 12000);
+
     return true;
 }
 
@@ -333,3 +375,50 @@ async function disableVoiceActivation(uploadScreenRecording = false) {
 
 window.enableVoiceActivation = enableVoiceActivation;
 window.disableVoiceActivation = disableVoiceActivation;
+
+function showRestartScreenSharingUI(hasError = false) {
+    if (window.recordButton) {
+        window.recordButton.textContent = 'Schermopname herstarten';
+        window.recordButton.className = 'btn btn-warning';
+        window.recordButton.dataset.sessionState = 'restart_screen';
+        window.recordButton.disabled = false;
+    }
+    if (window.silencePromptElement) {
+        window.silencePromptElement.classList.remove('d-none', 'alert-secondary', 'alert-warning', 'pulsing-alert');
+        window.silencePromptElement.classList.add('d-flex', 'alert-danger');
+        if (hasError) {
+            window.silencePromptElement.innerHTML = '<strong>Video-upload mislukt. Klik op de oranje knop om het scherm opnieuw te delen.</strong>';
+        } else {
+            window.silencePromptElement.innerHTML = '<strong>Schermopname gestopt! Klik op de oranje knop om het scherm opnieuw te delen.</strong>';
+        }
+    }
+}
+
+async function handleUnexpectedScreenShareStop() {
+    if (!vadEnabled) return;
+    console.log("Schermdeling onverwacht gestopt door gebruiker. Uploaden en pauzeren...");
+    window.unexpectedScreenShareStopActive = true;
+    
+    // Stop VAD, and upload the video recorded so far
+    await disableVoiceActivation(true);
+}
+
+window.handleUnexpectedScreenShareStop = handleUnexpectedScreenShareStop;
+window.unexpectedScreenShareStopActive = false;
+
+function resetToPreStartState() {
+    if (window.recordButton) {
+        window.recordButton.textContent = 'Start onderzoek';
+        window.recordButton.className = 'btn btn-danger';
+        window.recordButton.dataset.sessionState = 'start';
+        window.recordButton.disabled = false;
+    }
+    if (window.silencePromptElement) {
+        window.silencePromptElement.classList.remove('alert-danger', 'alert-warning', 'pulsing-alert');
+        window.silencePromptElement.classList.add('alert-secondary');
+        window.silencePromptElement.innerHTML = '';
+    }
+}
+
+window.showRestartScreenSharingUI = showRestartScreenSharingUI;
+window.resetToPreStartState = resetToPreStartState;
