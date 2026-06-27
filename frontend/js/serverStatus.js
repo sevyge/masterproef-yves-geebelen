@@ -4,6 +4,8 @@ const serverStatusElement = document.getElementById('serverStatus');
 let lastStatus = 'unknown';
 const backendBaseUrl = backendUrl();
 
+let statusInterval;
+
 function setServerStatus(text, color) {
     if (!serverStatusElement) return;
     serverStatusElement.innerHTML = `<span style="color:${color}">● </span>${text}`;
@@ -18,6 +20,9 @@ async function checkServerStatus() {
         if (response.ok) {
             lastStatus = "online";
             setServerStatus('Server status: Online', 'green');
+            if (statusInterval) {
+                clearInterval(statusInterval);
+            }
         } else {
             lastStatus = "error";
             setServerStatus('Server status: Error', 'red');
@@ -30,5 +35,5 @@ async function checkServerStatus() {
 
 window.addEventListener('load', () => {
     checkServerStatus();
-    setInterval(checkServerStatus, 100000);
+    statusInterval = setInterval(checkServerStatus, 10000);
 });
