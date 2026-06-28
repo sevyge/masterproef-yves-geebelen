@@ -103,7 +103,7 @@ def get_or_create_participant_folder(participant_id: str) -> str:
     if files:
         return files[0]["id"]
 
-    # Create the folder
+    # Create the folder if it doesn't exist
     folder_metadata = {
         "name": participant_id,
         "mimeType": "application/vnd.google-apps.folder",
@@ -117,6 +117,41 @@ def get_or_create_participant_folder(participant_id: str) -> str:
     )
     logging.info(f"Created Drive folder '{participant_id}' with ID: {folder['id']}")
     return folder["id"]
+
+
+def get_participant_folder(participant_id: str) -> str:
+    """Return the Drive folder ID for a participant, raising FileNotFoundError if not found."""
+    if os.getenv("LOCAL_STORAGE_MODE", "").lower() == "true":
+        return participant_id
+
+    service = get_drive_service()
+    if service is None:
+        raise FileNotFoundError("Service account file not found.")
+
+    parent_id = os.getenv("GOOGLE_DRIVE_FOLDER_ID")
+    if not parent_id:
+        raise ValueError("GOOGLE_DRIVE_FOLDER_ID environment variable is not set.")
+
+    query = (
+        f"name = '{participant_id}' and '{parent_id}' in parents "
+        f"and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
+    )
+
+    results = (
+        service.files()
+        .list(
+            q=query,
+            fields="files(id)",
+            supportsAllDrives=True,
+            includeItemsFromAllDrives=True,
+        )
+        .execute()
+    )
+    files = results.get("files", [])
+    if files:
+        return files[0]["id"]
+
+    raise FileNotFoundError(f"Participant folder '{participant_id}' not found on Google Drive.")
 
 
 def get_or_create_subfolder(parent_id: str, folder_name: str) -> str:
@@ -489,7 +524,7 @@ def get_participant_transcript(participant_id: str) -> list[dict]:
         service = get_drive_service()
         if service is None:
             raise FileNotFoundError("Google Drive service not initialized")
-        folder_id = get_or_create_participant_folder(participant_id)
+        folder_id = get_participant_folder(participant_id)
         file_name = f"transcript_{participant_id}.csv"
         
         query = f"'{folder_id}' in parents and mimeType = 'text/csv' and name = '{file_name}' and trashed = false"
@@ -540,7 +575,7 @@ def get_participant_screenshot(participant_id: str, filename: str) -> bytes:
         if service is None:
             raise FileNotFoundError("Google Drive service not initialized")
             
-        participant_folder = get_or_create_participant_folder(participant_id)
+        participant_folder = get_participant_folder(participant_id)
         screenshot_folder = get_or_create_subfolder(participant_folder, "Screenshots")
         
         query = f"'{screenshot_folder}' in parents and name = '{filename}' and trashed = false"
