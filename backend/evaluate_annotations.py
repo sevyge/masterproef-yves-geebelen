@@ -43,6 +43,22 @@ def calculate_jaccard(fragment_a, fragment_b):
     
     return len(intersection) / len(union)
 
+def find_candidate_matches(human_anns, llm_anns, threshold=0.5):
+    """
+    Verzamel alle kandidaat-matches die fysiek overlappen en een Jaccard-score boven de drempelwaarde hebben.
+    """
+    candidates = []
+    for human_fragment_index, human_ann in enumerate(human_anns):
+        for llm_fragment_index, llm_ann in enumerate(llm_anns):
+            score = calculate_jaccard(human_ann, llm_ann)
+            if score >= threshold:
+                candidates.append({
+                    "human_fragment_index": human_fragment_index,
+                    "llm_fragment_index": llm_fragment_index,
+                    "score": score
+                })
+    return candidates
+
 def main():
     logging.info("--- Running evaluate_annotations.py ---")
     participant_id = "4"
@@ -63,20 +79,24 @@ def main():
         if not human_anns or not llm_anns:
             continue
             
-        print(f"Segment ID: {row['segment_id']}")
+        print(f"=== Segment ID: {row['segment_id']} ===")
         print(f"Aantal mens-annotaties: {len(human_anns)}")
         print(f"Aantal LLM-annotaties:  {len(llm_anns)}")
         
-        for h in human_anns:
-            for l in llm_anns:
-                score = calculate_jaccard(h, l)
-                if score > 0.0:
-                    h_label = h.get("label", "N/A")
-                    l_label = l.get("label", "N/A")
-                    print(f"Overlappend paar gevonden:")
-                    print(f"  MENS: '{h['quote']}' [{h_label}] op posities [{h['start']}:{h['end']}]")
-                    print(f"  LLM: '{l['quote']}' [{l_label}] op posities [{l['start']}:{l['end']}]")
-                    print(f"  Berekende Jaccard-overlap: {score:.2%}")
+        candidates = find_candidate_matches(human_anns, llm_anns, threshold=0.5)
+        print(f"Aantal kandidaat-matches (threshold >= 50%): {len(candidates)}")
+        
+        for candidate in candidates:
+            human_fragment_index = candidate["human_fragment_index"]
+            llm_fragment_index = candidate["llm_fragment_index"]
+            human_ann = human_anns[human_fragment_index]
+            llm_ann = llm_anns[llm_fragment_index]
+            
+            print(f"\n  Kandidaat gevonden:")
+            print(f"    MENS [volgnummer {human_fragment_index}]: '{human_ann['quote']}' [{human_ann.get('label', 'N/A')}]")
+            print(f"    LLM  [volgnummer {llm_fragment_index}]: '{llm_ann['quote']}' [{llm_ann.get('label', 'N/A')}]")
+            print(f"    Jaccard-score: {candidate['score']:.2%}")
+            
         print("-" * 50)
 
 if __name__ == "__main__":

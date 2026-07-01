@@ -9,29 +9,41 @@ class TestOverlapAndJaccard(unittest.TestCase):
         self.assertEqual(clean_quote_words("de bottleneck."), {"de", "bottleneck"})
         self.assertEqual(clean_quote_words("Een Histogram!"), {"een", "histogram"})
 
-    def test_no_physical_overlap(self):
-        """Controleer dat fragmenten op verschillende posities niet met elkaar matchen."""
+    def test_calculate_jaccard(self):
+        """Controleer de Jaccard-berekening bij verschillende overlaps en edge cases."""
+        # 1. Geen fysieke overlap
         fragment_human = {"start": 12, "end": 17, "quote": "model"}
         fragment_llm = {"start": 42, "end": 47, "quote": "model"}
+        self.assertEqual(calculate_jaccard(fragment_human, fragment_llm), 0.0)
         
-        score = calculate_jaccard(fragment_human, fragment_llm)
-        self.assertEqual(score, 0.0)
-
-    def test_partial_jaccard_overlap(self):
-        """Controleer de Jaccard berekening bij gedeeltelijke overlap."""
+        # 2. Gedeeltelijke overlap (50%)
         fragment_human = {"start": 10, "end": 19, "quote": "histogram"}
         fragment_llm = {"start": 6, "end": 19, "quote": "een histogram"}
+        self.assertAlmostEqual(calculate_jaccard(fragment_human, fragment_llm), 0.50)
         
-        score = calculate_jaccard(fragment_human, fragment_llm)
-        self.assertAlmostEqual(score, 0.50)
-
-    def test_exact_match(self):
-        """Controleer dat exact gelijke quotes een score van 100% krijgen."""
+        # 3. Exacte match (100%)
         fragment_human = {"start": 100, "end": 165, "quote": "Ik open het model."}
         fragment_llm = {"start": 101, "end": 166, "quote": "Ik open het model."}
+        self.assertEqual(calculate_jaccard(fragment_human, fragment_llm), 1.0)
+
+    def test_find_candidate_matches(self):
+        """Controleer dat alleen kandidaat-matches boven de drempelwaarde worden verzameld."""
+        from evaluate_annotations import find_candidate_matches
         
-        score = calculate_jaccard(fragment_human, fragment_llm)
-        self.assertEqual(score, 1.0)
+        human_anns = [
+            {"start": 101, "end": 166, "quote": "Ik ga de Road Traffic Fine Management Process Dataset analyseren.", "label": "DOM"}
+        ]
+        llm_anns = [
+            {"start": 100, "end": 165, "quote": "Ik ga de Road Traffic Fine Management Process Dataset analyseren.", "label": "DOM"},
+            {"start": 832, "end": 903, "quote": "Ik zie hier meteen al dat de verschillende activiteiten zichtbaar zijn.", "label": "DK"} 
+        ]
+        
+        candidates = find_candidate_matches(human_anns, llm_anns, threshold=0.5)
+        
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(candidates[0]["score"], 1.0)
+        self.assertEqual(candidates[0]["human_fragment_index"], 0)
+        self.assertEqual(candidates[0]["llm_fragment_index"], 0)
 
 if __name__ == "__main__":
     unittest.main()
