@@ -30,6 +30,8 @@ services:
     env_file:
       - .env
     environment:
+      # Set timezone to Europe/Brussels so Python's time functions return local time
+      - TZ=Europe/Brussels
       # This flag tells the backend to save files locally instead of Google Drive. Defaults to true if not set in .env
       - LOCAL_STORAGE_MODE=${LOCAL_STORAGE_MODE:-true}
       - GOOGLE_DRIVE_FOLDER_ID=${GOOGLE_DRIVE_FOLDER_ID:-}

@@ -278,7 +278,7 @@ async function enableVoiceActivation() {
         onnxWASMBasePath: 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/',
         baseAssetPath: 'https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.29/dist/',
         positiveSpeechThreshold: 0.6,
-        redemptionFrames: 7,
+        redemptionFrames: 15,
         onSpeechStart: async () => {
             if (!vadEnabled || isRecording) {
                 return;
