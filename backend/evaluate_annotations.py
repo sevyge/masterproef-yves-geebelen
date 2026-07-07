@@ -59,6 +59,48 @@ def find_candidate_matches(human_anns, llm_anns, threshold=0.5):
                 })
     return candidates
 
+def match_segment_annotations(human_anns, llm_anns, threshold=0.5):
+    """
+    Koppelt menselijke annotaties en LLM-annotaties 1-op-1 op basis van de hoogste Jaccard-overlap.
+    Bij gelijke Jaccard-overlap krijgt een koppeling met een overeenstemmend label voorrang.
+    Retourneert een dict met matched_pairs, unmatched_human en unmatched_llm.
+    """
+    candidates = find_candidate_matches(human_anns, llm_anns, threshold)
+    
+    def get_sort_key(candidate):
+        human_ann = human_anns[candidate["human_fragment_index"]]
+        llm_ann = llm_anns[candidate["llm_fragment_index"]]
+        same_label = 1 if human_ann.get("label") == llm_ann.get("label") else 0
+        return (candidate["score"], same_label)
+        
+    candidates.sort(key=get_sort_key, reverse=True)
+    
+    matched_pairs = []
+    matched_human_indices = set()
+    matched_llm_indices = set()
+    
+    for candidate in candidates:
+        human_fragment_index = candidate["human_fragment_index"]
+        llm_fragment_index = candidate["llm_fragment_index"]
+        
+        if human_fragment_index not in matched_human_indices and llm_fragment_index not in matched_llm_indices:
+            matched_pairs.append(candidate)
+            matched_human_indices.add(human_fragment_index)
+            matched_llm_indices.add(llm_fragment_index)
+            
+    unmatched_human = [
+        i for i in range(len(human_anns)) if i not in matched_human_indices
+    ]
+    unmatched_llm = [
+        i for i in range(len(llm_anns)) if i not in matched_llm_indices
+    ]
+    
+    return {
+        "matched_pairs": matched_pairs,
+        "unmatched_human": unmatched_human,
+        "unmatched_llm": unmatched_llm
+    }
+
 def main():
     logging.info("--- Running evaluate_annotations.py ---")
     participant_id = "4"
@@ -76,27 +118,35 @@ def main():
         llm_anns = row.get("llm_annotaties", [])
         
         # Sla lege segmenten over
-        if not human_anns or not llm_anns:
+        if not human_anns and not llm_anns:
             continue
             
         print(f"=== Segment ID: {row['segment_id']} ===")
         print(f"Aantal mens-annotaties: {len(human_anns)}")
         print(f"Aantal LLM-annotaties:  {len(llm_anns)}")
         
-        candidates = find_candidate_matches(human_anns, llm_anns, threshold=0.5)
-        print(f"Aantal kandidaat-matches (threshold >= 50%): {len(candidates)}")
+        result = match_segment_annotations(human_anns, llm_anns, threshold=0.5)
         
-        for candidate in candidates:
-            human_fragment_index = candidate["human_fragment_index"]
-            llm_fragment_index = candidate["llm_fragment_index"]
-            human_ann = human_anns[human_fragment_index]
-            llm_ann = llm_anns[llm_fragment_index]
+        print(f"Koppelingen (True Positives): {len(result['matched_pairs'])}")
+        for match in result["matched_pairs"]:
+            human_ann = human_anns[match["human_fragment_index"]]
+            llm_ann = llm_anns[match["llm_fragment_index"]]
+            print(f"  [Match - Jaccard {match['score']:.2%}]")
+            print(f"    MENS: '{human_ann['quote']}' [{human_ann.get('label', 'N/A')}]")
+            print(f"    LLM : '{llm_ann['quote']}' [{llm_ann.get('label', 'N/A')}]")
             
-            print(f"\n  Kandidaat gevonden:")
-            print(f"    MENS [volgnummer {human_fragment_index}]: '{human_ann['quote']}' [{human_ann.get('label', 'N/A')}]")
-            print(f"    LLM  [volgnummer {llm_fragment_index}]: '{llm_ann['quote']}' [{llm_ann.get('label', 'N/A')}]")
-            print(f"    Jaccard-score: {candidate['score']:.2%}")
-            
+        if result["unmatched_human"]:
+            print(f"Gemist door LLM (False Negatives): {len(result['unmatched_human'])}")
+            for idx in result["unmatched_human"]:
+                ann = human_anns[idx]
+                print(f"  MENS: '{ann['quote']}' [{ann.get('label', 'N/A')}]")
+                
+        if result["unmatched_llm"]:
+            print(f"Verzonnen door LLM (False Positives): {len(result['unmatched_llm'])}")
+            for idx in result["unmatched_llm"]:
+                ann = llm_anns[idx]
+                print(f"  LLM : '{ann['quote']}' [{ann.get('label', 'N/A')}]")
+                
         print("-" * 50)
 
 if __name__ == "__main__":
