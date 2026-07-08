@@ -1,7 +1,7 @@
 import os
 import logging
 import string
-from services.storage_service import get_participant_transcript
+from services.storage_service import get_participant_transcript, get_participants_list
 
 # Forceer lokale modus voor testen
 os.environ["LOCAL_STORAGE_MODE"] = "true"
@@ -120,8 +120,9 @@ def match_segment_annotations(human_anns, llm_anns, threshold=0.5):
     }
 
 def evaluate_participant_fragments(data, threshold=0.5):
-    """Evalueert de fragment-matching per categorie en berekent de totalen met behulp van de CategoryMetrics klasse."""
-    results = {
+    """Evalueert de fragment-matching per categorie en berekent de totalen."""
+    # 1. Accumuleer counts intern met CategoryMetrics
+    metrics = {
         "DOM": CategoryMetrics(),
         "DK": CategoryMetrics(),
         "PK": CategoryMetrics(),
@@ -142,16 +143,34 @@ def evaluate_participant_fragments(data, threshold=0.5):
             false_positives_count = len(match_res["unmatched_llm_annotations"])
             false_negatives_count = len(match_res["unmatched_human_annotations"])
             
-            # Tel direct op bij de specifieke categorie
-            results[category].true_positives += true_positives_count
-            results[category].false_positives += false_positives_count
-            results[category].false_negatives += false_negatives_count
+            metrics[category].true_positives += true_positives_count
+            metrics[category].false_positives += false_positives_count
+            metrics[category].false_negatives += false_negatives_count
             
-            # Tel direct op bij het globale TOTAAL
-            results["TOTAAL"].true_positives += true_positives_count
-            results["TOTAAL"].false_positives += false_positives_count
-            results["TOTAAL"].false_negatives += false_negatives_count
+            metrics["TOTAAL"].true_positives += true_positives_count
+            metrics["TOTAAL"].false_positives += false_positives_count
+            metrics["TOTAAL"].false_negatives += false_negatives_count
             
+    # 2. Bereken statistieken en formatteer naar JSON
+    results = {}
+    for category, m in metrics.items():
+        true_positives = m.true_positives
+        false_positives = m.false_positives
+        false_negatives = m.false_negatives
+        
+        precision = true_positives / (true_positives + false_positives) if (true_positives + false_positives) > 0 else 0.0
+        recall = true_positives / (true_positives + false_negatives) if (true_positives + false_negatives) > 0 else 0.0
+        f1_score = (2 * precision * recall) / (precision + recall) if (precision + recall) > 0.0 else 0.0
+        
+        results[category] = {
+            "true_positives": true_positives,
+            "false_positives": false_positives,
+            "false_negatives": false_negatives,
+            "precision": precision,
+            "recall": recall,
+            "f1_score": f1_score
+        }
+        
     return results
 
 def print_aggregated_summary(data):
@@ -159,31 +178,68 @@ def print_aggregated_summary(data):
     print("=== SAMENVATTING OP FRAGMENTNIVEAU ===")
     results = evaluate_participant_fragments(data, threshold=0.5)
     for category, res in results.items():
-        true_positives = res.true_positives
-        false_positives = res.false_positives
-        false_negatives = res.false_negatives
-        
-        precision = true_positives / (true_positives + false_positives) if (true_positives + false_positives) > 0 else 0.0
-        recall = true_positives / (true_positives + false_negatives) if (true_positives + false_negatives) > 0 else 0.0
-        f1_score = (2 * precision * recall) / (precision + recall) if (precision + recall) > 0.0 else 0.0
+        true_positives = res["true_positives"]
+        false_positives = res["false_positives"]
+        false_negatives = res["false_negatives"]
+        precision = res["precision"]
+        recall = res["recall"]
+        f1_score = res["f1_score"]
         
         print(f"{category} -> Menselijke annotaties: {true_positives + false_negatives}, LLM annotaties: {true_positives + false_positives}, Overeenkomsten (Matches): {true_positives} | Precision: {precision:.1%}, Recall: {recall:.1%}, F1-score: {f1_score:.1%}")
     print()
 
 def main():
     logging.info("--- Running evaluate_annotations.py ---")
-    participant_id = "4"
-    
-    try:
-        data = get_participant_transcript(participant_id)
-    except Exception as e:
-        logging.error(f"Failed to load participant data: {e}")
+    participant_id = input("Enter Participant ID or Folder Name (or type 'all' to evaluate everyone): ").strip()
+    if not participant_id:
+        logging.error("No participant ID entered.")
         return
-        
-    logging.info(f"Successfully loaded {len(data)} segments.\n")
     
-    # Toon eindsamenvatting
-    print_aggregated_summary(data)
+    if participant_id.lower() == "all":
+        try:
+            participants = get_participants_list()
+        except Exception as e:
+            logging.error(f"Failed to load participants list: {e}")
+            return
+            
+        logging.info(f"Found participants: {participants}")
+        
+        all_data = []
+        incomplete_participants = []
+        
+        for p_id in participants:
+            try:
+                p_data = get_participant_transcript(p_id)
+                has_human = any(row.get("human_annotaties") for row in p_data)
+                has_llm = any(row.get("llm_annotaties") for row in p_data)
+                
+                if has_human and has_llm:
+                    all_data.extend(p_data)
+                else:
+                    incomplete_participants.append(p_id)
+            except Exception as e:
+                logging.warning(f"Failed to load data for participant {p_id}: {e}")
+                
+        if not all_data:
+            logging.error("No data found for any participant.")
+            return
+            
+        logging.info(f"Successfully loaded a total of {len(all_data)} segments from all participants.\n")
+        print_aggregated_summary(all_data)
+        
+        if incomplete_participants:
+            list_str = ", ".join(sorted(incomplete_participants))
+            print(f"[Opmerking] Deelnemer(s) {list_str} zijn onvolledig (missen menselijke of LLM annotaties) en zijn niet meegenomen in de resultaten.")
+            print()
+    else:
+        try:
+            data = get_participant_transcript(participant_id)
+        except Exception as e:
+            logging.error(f"Failed to load participant data: {e}")
+            return
+            
+        logging.info(f"Successfully loaded {len(data)} segments.\n")
+        print_aggregated_summary(data)
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')

@@ -16,6 +16,7 @@ function setupEventListeners() {
     document.getElementById("toggleLlmAnnotations").addEventListener("change", renderTranscript);
     document.getElementById("transcriptContainer").addEventListener("pointerup", handleTextSelection);
     document.getElementById("classifyBtn").addEventListener("click", runPostHocClassification);
+    document.getElementById("evaluateBtn").addEventListener("click", runEvaluation);
 
     document.getElementById("selectionPopup").addEventListener("click", e => {
         const btn = e.target.closest(".popup-btn");
@@ -518,4 +519,64 @@ async function runPostHocClassification() {
         classifyBtn.disabled = false;
         classifyBtn.innerHTML = originalText;
     }
+}
+
+async function runEvaluation() {
+    if (!currentParticipantId) return;
+
+    const evaluateBtn = document.getElementById("evaluateBtn");
+    const originalText = evaluateBtn.innerHTML;
+    evaluateBtn.disabled = true;
+    evaluateBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Evalueren...';
+
+    try {
+        const response = await fetch(`${backendUrl()}/researcher/participant/${currentParticipantId}/evaluate`, {
+            method: "POST",
+            headers: {
+                "X-Researcher-Token": researcherPassword
+            }
+        });
+
+        if (response.status === 401) return window.location.reload();
+
+        if (response.ok) {
+            const results = await response.json();
+            showEvaluationModal(results);
+        } else {
+            const err = await response.json();
+            alert("Fout bij uitvoeren evaluatie: " + (err.detail || "Onbekende fout"));
+        }
+    } catch (error) {
+        console.error("Error executing evaluation:", error);
+        alert("Netwerkfout bij het uitvoeren van de evaluatie.");
+    } finally {
+        evaluateBtn.disabled = false;
+        evaluateBtn.innerHTML = originalText;
+    }
+}
+
+function showEvaluationModal(results) {
+    const tableBody = document.getElementById("evaluationTableBody");
+    tableBody.innerHTML = ["DOM", "DK", "PK", "CK", "TOTAAL"].map(cat => {
+        const res = results[cat];
+        if (!res) return "";
+        
+        const mens = res.true_positives + res.false_negatives;
+        const llm = res.true_positives + res.false_positives;
+        const isTotal = cat === "TOTAAL" ? "table-secondary fw-bold" : "";
+        
+        return `
+            <tr class="${isTotal}">
+                <td class="fw-bold">${cat}</td>
+                <td>${mens}</td>
+                <td>${llm}</td>
+                <td>${res.true_positives}</td>
+                <td>${(res.precision * 100).toFixed(2)}%</td>
+                <td>${(res.recall * 100).toFixed(2)}%</td>
+                <td class="text-primary fw-bold">${(res.f1_score * 100).toFixed(2)}%</td>
+            </tr>
+        `;
+    }).join("");
+
+    new bootstrap.Modal(document.getElementById('evaluationModal')).show();
 }

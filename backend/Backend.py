@@ -39,6 +39,7 @@ from services.transcript_service import (
 )
 from prompts.system_prompt import SYSTEM_PROMPT
 from post_hoc_classification import classify_participant
+from evaluate_annotations import evaluate_participant_fragments
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(BASE_DIR, "..", ".env"))
@@ -604,6 +605,18 @@ def run_post_hoc_classification(participant_id: str, token: None = Depends(verif
     except Exception as e:
         logging.error(f"Error executing post-hoc classification for participant {participant_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to execute post-hoc classification")
+
+
+# Run evaluation for a participant
+@app.post("/researcher/participant/{participant_id}/evaluate")
+def run_evaluation(participant_id: str, token: None = Depends(verify_researcher_token)):
+    validate_participant_id(participant_id)
+    try:
+        data = get_participant_transcript(participant_id)
+        return evaluate_participant_fragments(data, threshold=0.5)
+    except Exception as e:
+        logging.error(f"Error running evaluation for participant {participant_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to run evaluation")
 
 
 if __name__ == "__main__":
