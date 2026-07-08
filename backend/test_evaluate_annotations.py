@@ -65,7 +65,7 @@ class TestOverlapAndJaccard(unittest.TestCase):
         self.assertEqual(len(result["matched_pairs"]), 1)
         self.assertEqual(result["matched_pairs"][0]["human_fragment_index"], 0)
         self.assertEqual(result["matched_pairs"][0]["llm_fragment_index"], 1)
-        self.assertEqual(result["unmatched_llm"], [0])
+        self.assertEqual(result["unmatched_llm_annotations"], [0])
 
 if __name__ == "__main__":
     unittest.main()

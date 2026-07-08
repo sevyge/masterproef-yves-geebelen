@@ -6,6 +6,13 @@ from services.storage_service import get_participant_transcript
 # Forceer lokale modus voor testen
 os.environ["LOCAL_STORAGE_MODE"] = "true"
 
+class CategoryMetrics:
+    """Houdt de evaluatieresultaten (TP, FP, FN) bij voor een categorie."""
+    def __init__(self):
+        self.true_positives = 0
+        self.false_positives = 0
+        self.false_negatives = 0
+
 def clean_quote_words(quote):
     """Zet de quote om naar een set van schone, kleine woorden zonder leestekens."""
     if not quote:
@@ -43,6 +50,14 @@ def calculate_jaccard(fragment_a, fragment_b):
     
     return len(intersection) / len(union)
 
+def filter_annotations_by_label(annotations, label):
+    """Filtert een lijst met annotaties op een specifiek label."""
+    filtered = []
+    for ann in annotations:
+        if ann.get("label") == label:
+            filtered.append(ann)
+    return filtered
+
 def find_candidate_matches(human_anns, llm_anns, threshold=0.5):
     """
     Verzamel alle kandidaat-matches die fysiek overlappen en een Jaccard-score boven de drempelwaarde hebben.
@@ -63,7 +78,7 @@ def match_segment_annotations(human_anns, llm_anns, threshold=0.5):
     """
     Koppelt menselijke annotaties en LLM-annotaties 1-op-1 op basis van de hoogste Jaccard-overlap.
     Bij gelijke Jaccard-overlap krijgt een koppeling met een overeenstemmend label voorrang.
-    Retourneert een dict met matched_pairs, unmatched_human en unmatched_llm.
+    Retourneert een dict met matched_pairs, unmatched_human_annotations en unmatched_llm_annotations.
     """
     candidates = find_candidate_matches(human_anns, llm_anns, threshold)
     
@@ -88,18 +103,72 @@ def match_segment_annotations(human_anns, llm_anns, threshold=0.5):
             matched_human_indices.add(human_fragment_index)
             matched_llm_indices.add(llm_fragment_index)
             
-    unmatched_human = [
-        i for i in range(len(human_anns)) if i not in matched_human_indices
-    ]
-    unmatched_llm = [
-        i for i in range(len(llm_anns)) if i not in matched_llm_indices
-    ]
+    unmatched_human_annotations = []
+    for i in range(len(human_anns)):
+        if i not in matched_human_indices:
+            unmatched_human_annotations.append(i)
+            
+    unmatched_llm_annotations = []
+    for i in range(len(llm_anns)):
+        if i not in matched_llm_indices:
+            unmatched_llm_annotations.append(i)
     
     return {
         "matched_pairs": matched_pairs,
-        "unmatched_human": unmatched_human,
-        "unmatched_llm": unmatched_llm
+        "unmatched_human_annotations": unmatched_human_annotations,
+        "unmatched_llm_annotations": unmatched_llm_annotations
     }
+
+def evaluate_participant_fragments(data, threshold=0.5):
+    """Evalueert de fragment-matching per categorie en berekent de totalen met behulp van de CategoryMetrics klasse."""
+    results = {
+        "DOM": CategoryMetrics(),
+        "DK": CategoryMetrics(),
+        "PK": CategoryMetrics(),
+        "CK": CategoryMetrics(),
+        "TOTAAL": CategoryMetrics()
+    }
+    
+    categories = ["DOM", "DK", "PK", "CK"]
+    
+    for row in data:
+        for category in categories:
+            human_anns = filter_annotations_by_label(row.get("human_annotaties", []), category)
+            llm_anns = filter_annotations_by_label(row.get("llm_annotaties", []), category)
+            
+            match_res = match_segment_annotations(human_anns, llm_anns, threshold)
+            
+            true_positives_count = len(match_res["matched_pairs"])
+            false_positives_count = len(match_res["unmatched_llm_annotations"])
+            false_negatives_count = len(match_res["unmatched_human_annotations"])
+            
+            # Tel direct op bij de specifieke categorie
+            results[category].true_positives += true_positives_count
+            results[category].false_positives += false_positives_count
+            results[category].false_negatives += false_negatives_count
+            
+            # Tel direct op bij het globale TOTAAL
+            results["TOTAAL"].true_positives += true_positives_count
+            results["TOTAAL"].false_positives += false_positives_count
+            results["TOTAAL"].false_negatives += false_negatives_count
+            
+    return results
+
+def print_aggregated_summary(data):
+    """Bereken en print geaggregeerde statistieken op fragmentniveau."""
+    print("=== SAMENVATTING OP FRAGMENTNIVEAU ===")
+    results = evaluate_participant_fragments(data, threshold=0.5)
+    for category, res in results.items():
+        true_positives = res.true_positives
+        false_positives = res.false_positives
+        false_negatives = res.false_negatives
+        
+        precision = true_positives / (true_positives + false_positives) if (true_positives + false_positives) > 0 else 0.0
+        recall = true_positives / (true_positives + false_negatives) if (true_positives + false_negatives) > 0 else 0.0
+        f1_score = (2 * precision * recall) / (precision + recall) if (precision + recall) > 0.0 else 0.0
+        
+        print(f"{category} -> Menselijke annotaties: {true_positives + false_negatives}, LLM annotaties: {true_positives + false_positives}, Overeenkomsten (Matches): {true_positives} | Precision: {precision:.1%}, Recall: {recall:.1%}, F1-score: {f1_score:.1%}")
+    print()
 
 def main():
     logging.info("--- Running evaluate_annotations.py ---")
@@ -113,41 +182,8 @@ def main():
         
     logging.info(f"Successfully loaded {len(data)} segments.\n")
     
-    for row in data:
-        human_anns = row.get("human_annotaties", [])
-        llm_anns = row.get("llm_annotaties", [])
-        
-        # Sla lege segmenten over
-        if not human_anns and not llm_anns:
-            continue
-            
-        print(f"=== Segment ID: {row['segment_id']} ===")
-        print(f"Aantal mens-annotaties: {len(human_anns)}")
-        print(f"Aantal LLM-annotaties:  {len(llm_anns)}")
-        
-        result = match_segment_annotations(human_anns, llm_anns, threshold=0.5)
-        
-        print(f"Koppelingen (True Positives): {len(result['matched_pairs'])}")
-        for match in result["matched_pairs"]:
-            human_ann = human_anns[match["human_fragment_index"]]
-            llm_ann = llm_anns[match["llm_fragment_index"]]
-            print(f"  [Match - Jaccard {match['score']:.2%}]")
-            print(f"    MENS: '{human_ann['quote']}' [{human_ann.get('label', 'N/A')}]")
-            print(f"    LLM : '{llm_ann['quote']}' [{llm_ann.get('label', 'N/A')}]")
-            
-        if result["unmatched_human"]:
-            print(f"Gemist door LLM (False Negatives): {len(result['unmatched_human'])}")
-            for idx in result["unmatched_human"]:
-                ann = human_anns[idx]
-                print(f"  MENS: '{ann['quote']}' [{ann.get('label', 'N/A')}]")
-                
-        if result["unmatched_llm"]:
-            print(f"Verzonnen door LLM (False Positives): {len(result['unmatched_llm'])}")
-            for idx in result["unmatched_llm"]:
-                ann = llm_anns[idx]
-                print(f"  LLM : '{ann['quote']}' [{ann.get('label', 'N/A')}]")
-                
-        print("-" * 50)
+    # Toon eindsamenvatting
+    print_aggregated_summary(data)
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
