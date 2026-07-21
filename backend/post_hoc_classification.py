@@ -48,6 +48,7 @@ def classify_participant(participant_id: str):
     AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT", "")
     AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION")
     CHAT_DEPLOYMENT = os.getenv("CHAT_DEPLOYMENT", "")
+    REASONING_EFFORT = os.getenv("REASONING_EFFORT", "medium")
 
     azure_client = None
     if AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT:
@@ -161,6 +162,7 @@ def classify_participant(participant_id: str):
                 input=[{"role": "user", "content": user_content}], # type: ignore
                 text_format=ChatClassification,
                 previous_response_id=previous_response_id,
+                reasoning={"effort": REASONING_EFFORT},
             )
             
             parsed = response.output_parsed

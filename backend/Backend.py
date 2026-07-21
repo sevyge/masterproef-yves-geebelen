@@ -54,6 +54,7 @@ AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT", "")
 AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION")
 TRANSCRIBE_DEPLOYMENT = os.getenv("TRANSCRIBE_DEPLOYMENT", "whisper-1")
 CHAT_DEPLOYMENT = os.getenv("CHAT_DEPLOYMENT", "")
+REASONING_EFFORT = os.getenv("REASONING_EFFORT", "medium")
 REALTIME_CLASSIFICATION = os.getenv("REALTIME_CLASSIFICATION", "false").lower() == "true"
 RESEARCHER_TOKEN = os.getenv("RESEARCHER_TOKEN")
 
@@ -366,6 +367,7 @@ def chat(
             ],
             text_format=ChatClassification,
             previous_response_id=previous_response_id,
+            reasoning={"effort": REASONING_EFFORT},
         )
 
         parsed = response.output_parsed
