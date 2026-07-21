@@ -620,11 +620,12 @@ def create_original_transcript_backup(participant_id: str):
                 logging.info(f"[BACKUP] Created original backup at {backup_path}")
             except Exception as e:
                 logging.error(f"[BACKUP] Failed to create original backup: {e}")
+                raise
     else:
         service = get_drive_service()
         if service is None:
             logging.error("[BACKUP] Google Drive service not initialized for backup.")
-            return
+            raise RuntimeError("Google Drive service not initialized; kan geen back-up maken.")
             
         try:
             folder_id = get_or_create_participant_folder(participant_id)
@@ -654,6 +655,7 @@ def create_original_transcript_backup(participant_id: str):
                     logging.info(f"[BACKUP] Created original Google Drive backup with ID: {copied_file.get('id')}")
         except Exception as e:
             logging.error(f"[BACKUP] Failed to create Google Drive backup: {e}")
+            raise
 
 
 

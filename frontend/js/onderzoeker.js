@@ -4,6 +4,8 @@ let currentSegmentIndex = -1;
 let activeSelection = null;
 let researcherPassword = "";
 let activeScreenshotUrl = null;
+let hasUnsavedChanges = false;
+let reviewedSegmentIds = new Set();
 
 document.addEventListener("DOMContentLoaded", () => {
     setupEventListeners();
@@ -11,12 +13,21 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 function setupEventListeners() {
-    document.getElementById("participantSelect").addEventListener("change", e => e.target.value ? loadParticipantData(e.target.value) : clearWorkspace());
+    document.getElementById("participantSelect").addEventListener("change", handleParticipantChange);
     document.getElementById("saveBtn").addEventListener("click", saveAnnotations);
     document.getElementById("toggleLlmAnnotations").addEventListener("change", renderTranscript);
     document.getElementById("transcriptContainer").addEventListener("pointerup", handleTextSelection);
     document.getElementById("classifyBtn").addEventListener("click", runPostHocClassification);
     document.getElementById("evaluateBtn").addEventListener("click", runEvaluation);
+    document.getElementById("reviewedToggle").addEventListener("change", handleReviewedToggle);
+
+    // Waarschuw bij verlaten (refresh, tab sluiten, uitloggen) met niet-opgeslagen annotaties.
+    window.addEventListener("beforeunload", e => {
+        if (hasUnsavedChanges) {
+            e.preventDefault();
+            e.returnValue = "";
+        }
+    });
 
     document.getElementById("selectionPopup").addEventListener("click", e => {
         const btn = e.target.closest(".popup-btn");
@@ -101,10 +112,36 @@ function showLoginError(message) {
 
 window.attemptLogin = attemptLogin;
 
+function handleLogout() {
+    if (hasUnsavedChanges &&
+        !confirm("Je hebt niet-opgeslagen annotaties. Toch uitloggen zonder op te slaan?")) {
+        return;
+    }
+    hasUnsavedChanges = false;
+    window.location.reload();
+}
+window.handleLogout = handleLogout;
+
+function handleParticipantChange(e) {
+    const newValue = e.target.value;
+    if (hasUnsavedChanges &&
+        !confirm("Je hebt niet-opgeslagen annotaties. Doorgaan zonder op te slaan?")) {
+        e.target.value = currentParticipantId || "";
+        return;
+    }
+    if (newValue) {
+        loadParticipantData(newValue);
+    } else {
+        clearWorkspace();
+    }
+}
+
 async function loadParticipantData(participantId) {
     currentParticipantId = participantId;
     segments = [];
     currentSegmentIndex = -1;
+    hasUnsavedChanges = false;
+    loadReviewedState(participantId);
     clearWorkspace();
 
     const spinner = '<div class="text-center py-5"><div class="spinner-border spinner-border-sm text-secondary" role="status"></div></div>';
@@ -144,6 +181,48 @@ async function loadParticipantData(participantId) {
     }
 }
 
+// "Nagekeken" is puur een lokaal voortgangshulpmiddel voor de onderzoeker
+function reviewedStorageKey(participantId) {
+    return `onderzoeker_reviewed_${participantId}`;
+}
+
+function loadReviewedState(participantId) {
+    try {
+        const raw = localStorage.getItem(reviewedStorageKey(participantId));
+        reviewedSegmentIds = new Set(raw ? JSON.parse(raw) : []);
+    } catch {
+        reviewedSegmentIds = new Set();
+    }
+}
+
+function saveReviewedState() {
+    if (!currentParticipantId) return;
+    localStorage.setItem(reviewedStorageKey(currentParticipantId), JSON.stringify([...reviewedSegmentIds]));
+}
+
+function handleReviewedToggle(e) {
+    if (currentSegmentIndex < 0) return;
+    const segmentId = segments[currentSegmentIndex].segment_id;
+    if (e.target.checked) {
+        reviewedSegmentIds.add(segmentId);
+    } else {
+        reviewedSegmentIds.delete(segmentId);
+    }
+    saveReviewedState();
+    renderSegments();
+}
+
+function renderReviewedToggle() {
+    const toggle = document.getElementById("reviewedToggle");
+    if (currentSegmentIndex < 0) {
+        toggle.checked = false;
+        toggle.disabled = true;
+        return;
+    }
+    toggle.disabled = false;
+    toggle.checked = reviewedSegmentIds.has(segments[currentSegmentIndex].segment_id);
+}
+
 function renderScreenshotPlaceholder(message) {
     return `
         <span class="text-muted" id="screenshotPlaceholder">
@@ -171,9 +250,12 @@ function renderSegments() {
         const segment = segments[i];
         const isActive = (i === currentSegmentIndex);
         const count = segment.human_annotaties.length;
+        const isReviewedEmpty = count === 0 && reviewedSegmentIds.has(segment.segment_id);
         const badgeHtml = count > 0
             ? `<span class="badge ${isActive ? 'bg-light text-dark' : 'bg-secondary text-white'} rounded-circle">${count}</span>`
-            : `<i class="bi bi-circle ${isActive ? 'text-white-50' : 'text-muted'}"></i>`;
+            : isReviewedEmpty
+                ? `<i class="bi bi-check-circle ${isActive ? 'text-white' : 'text-success'}" title="Nagekeken, geen codeerbaar fragment"></i>`
+                : `<i class="bi bi-circle ${isActive ? 'text-white-50' : 'text-muted'}"></i>`;
 
         html += `
             <div class="list-group-item list-group-item-action p-3 ${isActive ? 'active bg-danger border-danger' : ''}" 
@@ -193,7 +275,8 @@ function renderSegments() {
 function updateProgress() {
     let codedCount = 0;
     for (let i = 0; i < segments.length; i++) {
-        if (segments[i].human_annotaties.length > 0) {
+        const segment = segments[i];
+        if (segment.human_annotaties.length > 0 || reviewedSegmentIds.has(segment.segment_id)) {
             codedCount++;
         }
     }
@@ -218,6 +301,7 @@ async function loadSegmentDetails(index) {
 
     renderTranscript();
     renderAnnotationsList();
+    renderReviewedToggle();
 
     const segment = segments[index];
     if (segment.screenshot_bestandsnaam) {
@@ -297,6 +381,7 @@ function addAnnotation(quote, start, end, label) {
         end: end
     });
 
+    hasUnsavedChanges = true;
     window.getSelection().removeAllRanges();
     renderTranscript();
     renderAnnotationsList();
@@ -338,6 +423,7 @@ function deleteAnnotation(idx) {
     const segment = segments[currentSegmentIndex];
     segment.human_annotaties.splice(idx, 1);
 
+    hasUnsavedChanges = true;
     renderTranscript();
     renderAnnotationsList();
     renderSegments();
@@ -477,7 +563,12 @@ async function saveAnnotations() {
 
         if (response.status === 401) return window.location.reload();
 
-        alert(response.ok ? "Annotaties succesvol opgeslagen!" : "Fout bij het opslaan van annotaties.");
+        if (response.ok) {
+            hasUnsavedChanges = false;
+            alert("Annotaties succesvol opgeslagen!");
+        } else {
+            alert("Fout bij het opslaan van annotaties.");
+        }
     } catch (error) {
         console.error("Error saving annotations:", error);
         alert("Netwerkfout bij het opslaan.");
