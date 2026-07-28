@@ -3,8 +3,6 @@ import logging
 import string
 from services.storage_service import get_participant_transcript, get_participants_list
 
-# Forceer lokale modus voor testen
-os.environ["LOCAL_STORAGE_MODE"] = "true"
 
 class CategoryMetrics:
     """Houdt de evaluatieresultaten (TP, FP, FN) bij voor een categorie."""
@@ -242,6 +240,7 @@ def main():
         print_aggregated_summary(data)
 
 if __name__ == "__main__":
+    os.environ["LOCAL_STORAGE_MODE"] = "true"
     logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
     main()
 
