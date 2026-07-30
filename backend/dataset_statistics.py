@@ -1,6 +1,7 @@
 import csv
 import glob
 import os
+import re
 import statistics
 from collections import Counter
 from datetime import datetime
@@ -9,6 +10,10 @@ from services.storage_service import get_results_dir
 
 TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 EXCLUDED_FOLDERS = {"Testing_example"}
+
+# Effectief gebruikte tool tijdens de sessie (afgelezen uit schermopname)
+TOOL_USED = {"1": "Disco", "2": "Disco", "3": "Disco", "4": "bupaR",
+             "6": "PM4Py", "7": "Disco", "8": "bupaR"}
 
 
 def read_csv(path, delimiter=","):
@@ -34,6 +39,7 @@ def read_session(folder):
     return {
         "segments": len(speech),
         "silences": len(rows) - len(speech),
+        "words": sum(len(re.findall(r"[\w']+", text)) for text in speech),
         "seconds": duration.total_seconds(),
         "questionnaire": read_csv(glob.glob(os.path.join(folder, "vragenlijst_*.csv"))[0])[0],
     }
@@ -54,10 +60,11 @@ def report(results_dir):
     print(f"Aanmeldingen: {len(sessions) + len(dropouts)} | bruikbaar: {len(sessions)} | "
           f"uitval: {len(dropouts)} ({', '.join(dropouts)})\n")
 
-    print(f"{'ID':>3} {'segmenten':>10} {'stiltes':>8} {'duur':>8}")
+    print(f"{'ID':>3} {'segmenten':>10} {'stiltes':>8} {'duur':>8} {'w/segment':>10}  gebruikte tool")
     for participant_id, session in sessions.items():
         print(f"{participant_id:>3} {session['segments']:>10} {session['silences']:>8} "
-              f"{format_duration(session['seconds']):>8}")
+              f"{format_duration(session['seconds']):>8} {session['words'] / session['segments']:>10.1f}  "
+              f"{TOOL_USED[participant_id]}")
 
     seconds = [session["seconds"] for session in sessions.values()]
     segments = [session["segments"] for session in sessions.values()]
@@ -73,14 +80,16 @@ def report(results_dir):
     print()
 
     for field, label in [("huidige_rol", "Rol"),
-                         ("praktijkervaring", "Ervaring"),
-                         ("eerder_epa_project", "Eerder EPA-project")]:
+                         ("praktijkervaring", "Ervaring")]:
         counts = Counter(session["questionnaire"][field] for session in sessions.values())
         print(f"{label}: " + ", ".join(f"{count}x {value}" for value, count in counts.most_common()))
 
-    tools = Counter(tool.strip() for session in sessions.values()
-                    for tool in session["questionnaire"]["gebruikte_tools"].split(","))
-    print("Tools: " + ", ".join(f"{count}x {tool}" for tool, count in tools.most_common()))
+    tools_ever_used = Counter(tool.strip() for session in sessions.values()
+                              for tool in session["questionnaire"]["gebruikte_tools"].split(","))
+    print("Tools ooit gebruikt: " + ", ".join(f"{count}x {tool}" for tool, count in tools_ever_used.most_common()))
+
+    tool_during_session = Counter(TOOL_USED[participant_id] for participant_id in sessions)
+    print("Tool tijdens sessie: " + ", ".join(f"{count}x {tool}" for tool, count in tool_during_session.most_common()))
 
 
 if __name__ == "__main__":
