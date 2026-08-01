@@ -11,6 +11,11 @@ import json
 
 load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".env"))
 
+# Tarieven in dollar per 1M tokens voor gpt-5.6-terra (short context, global standard, zonder prioriteitsverwerking).
+INPUT_PRICE_PER_MILLION = 2.50
+CACHED_INPUT_PRICE_PER_MILLION = 0.25
+OUTPUT_PRICE_PER_MILLION = 15.00
+
 
 def get_participant_folders(service, parent_id):
     """Retrieve all participant folders inside the root project folder."""
@@ -25,6 +30,79 @@ def get_participant_folders(service, parent_id):
         includeItemsFromAllDrives=True
     ).execute()
     return results.get("files", [])
+
+
+class TokenUsageTotals:
+    """
+    Verzamelt het tokenverbruik van de classificatierun.
+
+    Omdat elke call de volledige voorgaande keten meestuurt (previous_response_id), groeit de
+    invoercontext per segment. Deze telling maakt zichtbaar hoe snel dat gebeurt, welk deel uit
+    de prompt-cache komt (die aanzienlijk goedkoper afgerekend wordt) en wat de run in totaal
+    kost.
+    """
+
+    def __init__(self):
+        self.call_count = 0
+        self.input_tokens = 0
+        self.cached_input_tokens = 0
+        self.output_tokens = 0
+
+    def add_response(self, response, segment_id=None):
+        usage = getattr(response, "usage", None)
+        if usage is None:
+            return
+
+        input_tokens = getattr(usage, "input_tokens", 0) or 0
+        output_tokens = getattr(usage, "output_tokens", 0) or 0
+        input_details = getattr(usage, "input_tokens_details", None)
+        cached_tokens = getattr(input_details, "cached_tokens", 0) or 0
+
+        self.call_count += 1
+        self.input_tokens += input_tokens
+        self.cached_input_tokens += cached_tokens
+        self.output_tokens += output_tokens
+
+        logging.info(
+            f"Tokens (segment {segment_id}): input={input_tokens} "
+            f"(gecacht {cached_tokens}), output={output_tokens}"
+        )
+
+    def log_summary(self, participant_name):
+        if self.call_count == 0:
+            return
+
+        uncached_input_tokens = self.input_tokens - self.cached_input_tokens
+        cache_hit_rate = self.cached_input_tokens / self.input_tokens if self.input_tokens else 0.0
+        average_input_tokens = self.input_tokens / self.call_count
+
+        logging.info(
+            f"--- Tokenverbruik {participant_name}: {self.call_count} calls | "
+            f"input {self.input_tokens} (gecacht {self.cached_input_tokens}, "
+            f"{cache_hit_rate:.1%}) | output {self.output_tokens} | "
+            f"gemiddeld {average_input_tokens:.0f} invoertokens per call ---"
+        )
+        logging.info(
+            f"Kost bij €{INPUT_PRICE_PER_MILLION:.2f} / €{CACHED_INPUT_PRICE_PER_MILLION:.2f} / "
+            f"€{OUTPUT_PRICE_PER_MILLION:.2f} per 1M (input / gecachte input / output): "
+            f"€{self.estimate_cost(uncached_input_tokens):.2f}"
+        )
+
+    def estimate_cost(
+        self,
+        uncached_input_tokens,
+        input_price=INPUT_PRICE_PER_MILLION,
+        cached_input_price=CACHED_INPUT_PRICE_PER_MILLION,
+        output_price=OUTPUT_PRICE_PER_MILLION,
+    ):
+        """
+        Schat de kost. Tarieven staan als standaardwaarde en zijn aanpasbaar.
+        """
+        return (
+            (self.input_tokens + uncached_input_tokens) / 1_000_000 * input_price
+            + self.cached_input_tokens / 1_000_000 * cached_input_price
+            + self.output_tokens / 1_000_000 * output_price
+        )
 
 
 def classify_participant(participant_id: str):
@@ -136,7 +214,8 @@ def classify_participant(participant_id: str):
     rows = list(reader)
     updated = False
     previous_response_id = None
-    
+    token_usage_totals = TokenUsageTotals()
+
     # 3. Iterate through rows and classify all entries
     for row in rows:
         transcript_text = (row.get("transcript") or "").strip()
@@ -165,6 +244,8 @@ def classify_participant(participant_id: str):
                 reasoning={"effort": REASONING_EFFORT},
             )
             
+            token_usage_totals.add_response(response, row.get("segment_id"))
+
             parsed = response.output_parsed
             if parsed:
                 annotations_list = []
@@ -206,7 +287,9 @@ def classify_participant(participant_id: str):
                 
         except Exception as e:
             logging.error(f"Error calling LLM: {e}")
-                
+
+    token_usage_totals.log_summary(folder['name'])
+
     # 4. If updated, upload the new CSV back to Google Drive
     if updated:
         logging.info(f"Uploading updated {file_name} back...")
