@@ -12,7 +12,7 @@ Code exactly the contiguous stretch of text needed to satisfy the inclusion crit
 Knowledge types:
 The first three knowledge types are general for process mining, while domain knowledge is case-specific.
 
-1. Declarative knowledge (DK): Explicit facts and concepts needed to understand process mining ("knowing what"), which the analyst can express in a declarative sentence, independent of the specific case or action.
+1. Declarative knowledge (DK): Explicit facts and concepts needed to understand process mining ("knowing what"), which the analyst can express in a declarative sentence, independent of a specific case or action.
    - Inclusion criteria: Describing or explaining a general process mining concept or process characteristic (e.g. "event log", "case ID", "activities", "variants" or "throughput time").
    - Exclusion criteria: Using a process mining term without describing or explaining the underlying concept or process characteristic.
    - Example: "Een event log is een verzameling van gebeurtenissen die per case gegroepeerd zijn."
