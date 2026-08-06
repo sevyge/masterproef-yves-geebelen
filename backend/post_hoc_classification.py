@@ -218,8 +218,9 @@ def classify_participant(participant_id: str):
 
     # 3. Iterate through rows and classify all entries
     for row in rows:
-        transcript_text = (row.get("transcript") or "").strip()
-        
+        raw_transcript = row.get("transcript") or ""
+        transcript_text = raw_transcript.strip()
+
         # Skip empty transcripts and silence entries
         if not transcript_text or (transcript_text.startswith("**") and transcript_text.endswith("**")):
             logging.info(f"Entry {row.get('segment_id')} has an empty transcript or is a silence entry. Skipping.")
@@ -256,12 +257,12 @@ def classify_participant(participant_id: str):
                     conf = ann.confidence_score
                     
                     # Search for start and end character offsets in the transcript
-                    start_idx = transcript_text.find(quote)
+                    start_idx = raw_transcript.find(quote)
                     if start_idx != -1:
                         end_idx = start_idx + len(quote)
                     else:
                         # Fallback for minor casing discrepancies
-                        start_idx = transcript_text.lower().find(quote.lower())
+                        start_idx = raw_transcript.lower().find(quote.lower())
                         if start_idx != -1:
                             end_idx = start_idx + len(quote)
                         else:

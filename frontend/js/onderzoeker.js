@@ -6,6 +6,7 @@ let researcherPassword = "";
 let activeScreenshotUrl = null;
 let hasUnsavedChanges = false;
 let reviewedSegmentIds = new Set();
+let hoveredAnnotationIndex = -1;
 
 document.addEventListener("DOMContentLoaded", () => {
     setupEventListeners();
@@ -285,6 +286,7 @@ function updateProgress() {
 
 function selectSegment(index) {
     hideSelectionPopup();
+    hoveredAnnotationIndex = -1;
     currentSegmentIndex = index;
     renderSegments();
     loadSegmentDetails(index);
@@ -423,6 +425,7 @@ function deleteAnnotation(idx) {
     const segment = segments[currentSegmentIndex];
     segment.human_annotaties.splice(idx, 1);
 
+    hoveredAnnotationIndex = -1;
     hasUnsavedChanges = true;
     renderTranscript();
     renderAnnotationsList();
@@ -442,6 +445,10 @@ function escapeHtml(txt) {
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;");
+}
+
+function sortLongestFirst(annotations) {
+    return (annotations || []).slice().sort((a, b) => (b.end - b.start) - (a.end - a.start));
 }
 
 function wrapChunk(chunk, humanClass, llmClass) {
@@ -464,28 +471,49 @@ function renderTranscript() {
     const humanClasses = new Array(text.length).fill("");
     const llmClasses = new Array(text.length).fill("");
 
-    const humanAnns = segment.human_annotaties || [];
-    for (let i = 0; i < humanAnns.length; i++) {
-        const ann = humanAnns[i];
+    const humanBase = new Array(text.length).fill("");
+    const humanInner = new Array(text.length).fill("");
+    for (const ann of sortLongestFirst(segment.human_annotaties)) {
         const color = getCategoryColor(ann.label);
         for (let j = ann.start; j < ann.end; j++) {
-            if (j >= 0 && j < text.length) {
-                humanClasses[j] = `bg-${color}-subtle border-bottom border-${color}`;
-            }
+            if (j < 0 || j >= text.length) continue;
+            if (humanBase[j]) humanInner[j] = color;
+            else humanBase[j] = color;
         }
+    }
+
+    const hovered = new Array(text.length).fill(false);
+    const hoveredAnn = (segment.human_annotaties || [])[hoveredAnnotationIndex];
+    if (hoveredAnn) {
+        for (let j = hoveredAnn.start; j < hoveredAnn.end; j++) {
+            if (j >= 0 && j < text.length) hovered[j] = true;
+        }
+    }
+
+    for (let j = 0; j < text.length; j++) {
+        if (humanBase[j]) {
+            humanClasses[j] = `bg-${humanBase[j]}-subtle`;
+            if (humanInner[j]) humanClasses[j] += ` border-bottom border-2 border-${humanInner[j]}`;
+        }
+        if (hovered[j]) humanClasses[j] += " annotation-hover";
     }
 
     const showLlm = document.getElementById("toggleLlmAnnotations").checked;
     if (showLlm && segment.llm_annotaties) {
-        const llmAnns = segment.llm_annotaties;
-        for (let i = 0; i < llmAnns.length; i++) {
-            const ann = llmAnns[i];
+        const llmBase = new Array(text.length).fill("");
+        const llmOverlap = new Array(text.length).fill(false);
+        for (const ann of sortLongestFirst(segment.llm_annotaties)) {
             const color = getCategoryColor(ann.label);
             for (let j = ann.start; j < ann.end; j++) {
-                if (j >= 0 && j < text.length) {
-                    llmClasses[j] = `border-bottom border-${color} border-dashed border-2`;
-                }
+                if (j < 0 || j >= text.length) continue;
+                if (llmBase[j]) llmOverlap[j] = true;
+                else llmBase[j] = color;
             }
+        }
+        for (let j = 0; j < text.length; j++) {
+            if (!llmBase[j]) continue;
+            const dikte = llmOverlap[j] ? "border-4" : "border-2";
+            llmClasses[j] = `llm-annotation border-bottom ${dikte} border-${llmBase[j]}`;
         }
     }
 
@@ -524,7 +552,8 @@ function renderAnnotationsList() {
         const textClass = ann.label === "DK" ? "text-dark" : "text-white";
 
         html += `
-            <div class="card mb-2 border-light shadow-sm">
+            <div class="card mb-2 border-light shadow-sm"
+                 onmouseenter="setHoveredAnnotation(${i})" onmouseleave="setHoveredAnnotation(-1)">
                 <div class="card-body p-2 d-flex align-items-center justify-content-between">
                     <div class="d-flex align-items-center gap-2">
                         <span class="badge bg-${color} ${textClass}">${ann.label}</span>
@@ -540,6 +569,12 @@ function renderAnnotationsList() {
     document.getElementById("annotationsList").innerHTML = html;
 }
 
+function setHoveredAnnotation(index) {
+    hoveredAnnotationIndex = index;
+    renderTranscript();
+}
+
+window.setHoveredAnnotation = setHoveredAnnotation;
 window.deleteAnnotation = deleteAnnotation;
 window.selectSegment = selectSegment;
 
