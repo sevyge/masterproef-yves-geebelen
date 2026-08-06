@@ -7,6 +7,7 @@ let activeScreenshotUrl = null;
 let hasUnsavedChanges = false;
 let reviewedSegmentIds = new Set();
 let hoveredAnnotationIndex = -1;
+let hoveredAnnotationSource = "human";
 
 document.addEventListener("DOMContentLoaded", () => {
     setupEventListeners();
@@ -16,7 +17,10 @@ document.addEventListener("DOMContentLoaded", () => {
 function setupEventListeners() {
     document.getElementById("participantSelect").addEventListener("change", handleParticipantChange);
     document.getElementById("saveBtn").addEventListener("click", saveAnnotations);
-    document.getElementById("toggleLlmAnnotations").addEventListener("change", renderTranscript);
+    document.getElementById("toggleLlmAnnotations").addEventListener("change", () => {
+        renderTranscript();
+        renderLlmAnnotationsList();
+    });
     document.getElementById("transcriptContainer").addEventListener("pointerup", handleTextSelection);
     document.getElementById("classifyBtn").addEventListener("click", runPostHocClassification);
     document.getElementById("evaluateBtn").addEventListener("click", runEvaluation);
@@ -483,7 +487,8 @@ function renderTranscript() {
     }
 
     const hovered = new Array(text.length).fill(false);
-    const hoveredAnn = (segment.human_annotaties || [])[hoveredAnnotationIndex];
+    const hoveredList = hoveredAnnotationSource === "llm" ? segment.llm_annotaties : segment.human_annotaties;
+    const hoveredAnn = (hoveredList || [])[hoveredAnnotationIndex];
     if (hoveredAnn) {
         for (let j = hoveredAnn.start; j < hoveredAnn.end; j++) {
             if (j >= 0 && j < text.length) hovered[j] = true;
@@ -567,10 +572,40 @@ function renderAnnotationsList() {
         `;
     }
     document.getElementById("annotationsList").innerHTML = html;
+    renderLlmAnnotationsList();
 }
 
-function setHoveredAnnotation(index) {
+function renderLlmAnnotationsList() {
+    const segment = segments[currentSegmentIndex];
+    const annotations = segment.llm_annotaties || [];
+    const showLlm = document.getElementById("toggleLlmAnnotations").checked;
+    const section = document.getElementById("llmAnnotationsSection");
+
+    section.classList.toggle("d-none", !showLlm || annotations.length === 0);
+    if (!showLlm || annotations.length === 0) return;
+
+    let html = "";
+    for (let i = 0; i < annotations.length; i++) {
+        const ann = annotations[i];
+        const color = getCategoryColor(ann.label);
+        const textClass = ann.label === "DK" ? "text-dark" : "text-white";
+
+        html += `
+            <div class="card mb-2 bg-light border-light shadow-sm"
+                 onmouseenter="setHoveredAnnotation(${i}, 'llm')" onmouseleave="setHoveredAnnotation(-1)">
+                <div class="card-body p-2 d-flex align-items-center gap-2">
+                    <span class="badge bg-${color} ${textClass}">${ann.label}</span>
+                    <span class="small font-monospace text-truncate" style="max-width: 200px;">"${escapeHtml(ann.quote)}"</span>
+                </div>
+            </div>
+        `;
+    }
+    document.getElementById("llmAnnotationsList").innerHTML = html;
+}
+
+function setHoveredAnnotation(index, source = "human") {
     hoveredAnnotationIndex = index;
+    hoveredAnnotationSource = source;
     renderTranscript();
 }
 
