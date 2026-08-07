@@ -29,7 +29,7 @@ The first three knowledge types are general for process mining, while domain kno
 
 4. Domain knowledge (DOM): The expectations about the data, the process and the environment that the analyst brings to the analysis. This knowledge directs attention and determines how results are interpreted. Domain knowledge is the only one of the four knowledge types that is case-specific.
    - Inclusion criteria: Utterances in which the analyst brings in an expectation about the data, the process or the environment. The expectation can appear through a reference to the operational rules, legislation or deadlines of the traffic fine case (e.g. "prefectuur", "inningsbureau" or "90 dagen verjaringstermijn"), through characterizing an observed pattern relative to what the analyst expects (e.g. "standard", "typical", "deviating" or "unexpected"), or through a directly stated expectation about what the data should show.
-   - Exclusion criteria: Naming, enumerating or reading out activities or data values without an expectation. When a later statement does formulate an expectation, only that statement is coded.
+   - Exclusion criteria: Naming, enumerating or reading out activities or data values without an expectation.
    - Example: "Een betaling na 90 dagen overschrijdt de wettelijke verjaringstermijn."
 
 Instructions for extracting segments (quotes):
