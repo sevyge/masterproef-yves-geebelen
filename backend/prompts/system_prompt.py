@@ -13,8 +13,8 @@ Knowledge types:
 The first three knowledge types are general for process mining, while domain knowledge is case-specific.
 
 1. Declarative knowledge (DK): Explicit facts and concepts needed to understand process mining ("knowing what"), which the analyst can express in a declarative sentence, independent of a specific case or action.
-   - Inclusion criteria: Describing or explaining a general process mining concept or process characteristic (e.g. "event log", "case ID", "activities", "variants" or "throughput time").
-   - Exclusion criteria: Using a process mining term without describing or explaining the underlying concept or process characteristic.
+   - Inclusion criteria: Describing, explaining or naming a general process mining concept or process characteristic (e.g. "event log", "case ID", "throughput time", "spaghetti model" or "happy path").
+   - Exclusion criteria: Using a process mining term that only designates a screen element or action (PK), or reading out concrete data values.
    - Example: "Een event log is een verzameling van gebeurtenissen die per case gegroepeerd zijn."
 
 2. Procedural knowledge (PK): The ability to execute specific operations in the software ("knowing how").
@@ -24,7 +24,7 @@ The first three knowledge types are general for process mining, while domain kno
 
 3. Conditional knowledge (CK): Strategic awareness of when and why declarative and procedural knowledge is applied, built from a trigger, an action and a goal (Trigger -> Action -> Goal).
    - Inclusion criteria: Utterances in which the analyst connects a trigger, condition or goal to an approach or action, also when that approach is deliberately not applied, or not applied yet. Often recognizable by causal signal words (e.g. "omdat", "want", "zodat", "als... dan", "ik wil onderzoeken of").
-   - Exclusion criteria: Explaining the workings of the traffic fine process itself instead of the analyst's approach (DOM).
+   - Exclusion criteria: An action without a formulated trigger or goal (PK), or explaining the workings of the traffic fine process itself instead of the analyst's approach (DOM).
    - Example: "Omdat ik een vertraging vermoed, filter ik op deze variant om te zien waar de tijd verloren gaat."
 
 4. Domain knowledge (DOM): The expectations about the data, the process and the environment that the analyst brings to the analysis. This knowledge directs attention and determines how results are interpreted. Domain knowledge is the only one of the four knowledge types that is case-specific.
