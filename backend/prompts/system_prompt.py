@@ -17,9 +17,9 @@ The first three knowledge types are general for process mining, while domain kno
    - Exclusion criteria: Using a process mining term that only designates a screen element or action (PK), or reading out concrete data values.
    - Example: "Een event log is een verzameling van gebeurtenissen die per case gegroepeerd zijn."
 
-2. Procedural knowledge (PK): The ability to execute specific operations in the software ("knowing how").
-   - Inclusion criteria: Describing an action the analyst performs in the software themselves, or the way in which an operation is carried out in the software (e.g. clicking, filtering, zooming, selecting, opening).
-   - Exclusion criteria: Describing what the software displays without an action performed by the analyst.
+2. Procedural knowledge (PK): The ability to execute specific operations ("knowing how").
+   - Inclusion criteria: Describing an action the analyst performs themselves, or the way in which an operation is carried out (e.g. clicking, filtering, zooming, selecting, opening, writing or running code).
+   - Exclusion criteria: Describing what is displayed without an action performed by the analyst.
    - Example: "Ik sleep de regelaar voor paden nu naar 100%."
 
 3. Conditional knowledge (CK): Strategic awareness of when and why declarative and procedural knowledge is applied, built from a trigger, an action and a goal (Trigger -> Action -> Goal).

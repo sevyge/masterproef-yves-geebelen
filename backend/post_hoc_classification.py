@@ -1,10 +1,11 @@
 import os
 import logging
 from dotenv import load_dotenv
-from services.storage_service import get_drive_service, upload_to_google_drive, get_results_dir
+from services.storage_service import get_drive_service, upload_to_google_drive, get_results_dir, get_participant_screenshot
 from openai import AzureOpenAI
 from prompts.system_prompt import SYSTEM_PROMPT
 from schemas.chat import ChatClassification
+import base64
 import io
 import csv
 import json
@@ -99,13 +100,13 @@ class TokenUsageTotals:
         Schat de kost. Tarieven staan als standaardwaarde en zijn aanpasbaar.
         """
         return (
-            (self.input_tokens + uncached_input_tokens) / 1_000_000 * input_price
+            uncached_input_tokens / 1_000_000 * input_price
             + self.cached_input_tokens / 1_000_000 * cached_input_price
             + self.output_tokens / 1_000_000 * output_price
         )
 
 
-def classify_participant(participant_id: str):
+def classify_participant(participant_id: str, overwrite: bool = False):
     """Run post-hoc classification for a specific participant."""
     logging.info(f"Starting post-hoc classification process for participant: {participant_id}")
 
@@ -226,15 +227,21 @@ def classify_participant(participant_id: str):
             logging.info(f"Entry {row.get('segment_id')} has an empty transcript or is a silence entry. Skipping.")
             continue
             
-        # Skip if already classified (check if llm_annotaties has classifications)
+        # Skip if already classified, unless overwrite was requested
         llm_annotations_str = (row.get("llm_annotaties") or "").strip()
-        if llm_annotations_str and llm_annotations_str != "[]":
+        if llm_annotations_str and llm_annotations_str != "[]" and not overwrite:
             logging.info(f"Entry {row.get('segment_id')} is already classified. Skipping.")
             continue
 
         logging.info(f"Classifying entry {row.get('segment_id')}...")
         user_content = [{"type": "input_text", "text": transcript_text}]
-        
+
+        # screenshot_name = row.get("screenshot_bestandsnaam")
+        # if screenshot_name:
+        #     image_bytes = get_participant_screenshot(participant_id, screenshot_name)
+        #     screenshot = f"data:image/jpeg;base64,{base64.b64encode(image_bytes).decode('utf-8')}"
+        #     user_content.append({"type": "input_image", "image_url": screenshot})
+
         try:
             response = azure_client.responses.parse(
                 model=CHAT_DEPLOYMENT,
@@ -331,8 +338,13 @@ def main():
         logging.error("No participant ID entered.")
         return
 
+    answer = input("Overwrite existing LLM annotations? (y/N): ").strip().lower()
+    overwrite = answer in ("y", "yes", "j", "ja")
+    if overwrite:
+        logging.warning("OVERWRITE MODE: existing LLM annotations will be replaced. Human annotations stay untouched.")
+
     try:
-        classify_participant(participant_id)
+        classify_participant(participant_id, overwrite=overwrite)
     except Exception as e:
         logging.error(f"Error running classification: {e}")
 
