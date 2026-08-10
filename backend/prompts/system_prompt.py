@@ -18,7 +18,7 @@ The first three knowledge types are general for process mining, while domain kno
    - Example: "Een event log is een verzameling van gebeurtenissen die per case gegroepeerd zijn."
 
 2. Procedural knowledge (PK): The ability to execute specific operations ("knowing how").
-   - Inclusion criteria: Describing an action the analyst performs themselves, or the way in which an operation is carried out (e.g. clicking, filtering, zooming, selecting, opening, writing or running code). Looking at a view also counts as an action when the analyst names what is being looked at.
+   - Inclusion criteria: Describing an action the analyst performs themselves, or the way in which an operation is carried out (e.g. clicking, filtering, zooming, selecting, opening, writing or running code).
    - Exclusion criteria: Describing what is displayed without an action performed by the analyst.
    - Example: "Ik sleep de regelaar voor paden nu naar 100%."
 
