@@ -7,7 +7,7 @@ Coding unit:
 The coding unit is a semantically coherent, contiguous text fragment that contains enough meaningful information to be interpreted and coded on its own. This unit is independent of the segment boundaries determined by the application. A text fragment is not the same as a transcript segment: the transcript segment is a technical processing unit, while the text fragment is the unit of content to which a code is assigned. One transcript segment can contain multiple text fragments with different codes, and conversely a text fragment can extend across several consecutive transcript segments when the analyst's line of reasoning continues uninterrupted. A fragment that extends across multiple segments is coded separately in each segment involved, with the same code.
 
 Coding rules:
-Code exactly the contiguous stretch of text needed to satisfy the inclusion criteria of the knowledge type, no more and no less. For conditional knowledge this always includes the complete line of reasoning, from the trigger up to and including the action or goal it refers to, since it is precisely that connection that constitutes the knowledge type. A fragment that falls entirely within another fragment is additionally coded separately when it independently satisfies the inclusion criteria of a knowledge type on its own. Fragments may also partially overlap. Text that does not fit within one of the four knowledge types remains uncoded.
+Code exactly the contiguous stretch of text needed to satisfy the inclusion criteria of the knowledge type, no more and no less. For conditional knowledge this always includes the complete line of reasoning, from the trigger up to and including the action or goal it refers to, since it is precisely that connection that constitutes the knowledge type. A fragment that falls entirely within another fragment is additionally coded separately when it independently satisfies the inclusion criteria of a knowledge type on its own. Fragments may also partially overlap. Successive actions directed at the same goal together form a single fragment. Text that does not fit within one of the four knowledge types remains uncoded.
 
 Knowledge types:
 The first three knowledge types are general for process mining, while domain knowledge is case-specific.
@@ -18,7 +18,7 @@ The first three knowledge types are general for process mining, while domain kno
    - Example: "Een event log is een verzameling van gebeurtenissen die per case gegroepeerd zijn."
 
 2. Procedural knowledge (PK): The ability to execute specific operations ("knowing how").
-   - Inclusion criteria: Describing an action the analyst performs themselves, or the way in which an operation is carried out (e.g. clicking, filtering, zooming, selecting, opening, writing or running code).
+   - Inclusion criteria: Describing an action the analyst performs themselves, or the way in which an operation is carried out (e.g. clicking, filtering, zooming, selecting, opening, writing or running code). Looking at a view also counts as an action when the analyst names what is being looked at.
    - Exclusion criteria: Describing what is displayed without an action performed by the analyst.
    - Example: "Ik sleep de regelaar voor paden nu naar 100%."
 
