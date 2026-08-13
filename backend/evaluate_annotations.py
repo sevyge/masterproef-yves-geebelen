@@ -221,9 +221,24 @@ def print_aggregated_summary(data):
             precision = res["precision"]
             recall = res["recall"]
             f1_score = res["f1_score"]
-            
+
             print(f"{category:7} -> Menselijk: {true_positives + false_negatives:2d}, LLM: {true_positives + false_positives:2d}, Matches (TP): {true_positives:2d} | Precision: {precision:5.1%}, Recall: {recall:5.1%}, F1-score: {f1_score:5.1%}")
         print()
+
+def print_human_label_distribution(data):
+    """Print de labelverdeling van de menselijke referentiecodering."""
+    counts = {
+        category: sum(len(filter_annotations_by_label(row.get("human_annotaties", []), category)) for row in data)
+        for category in CATEGORIES
+    }
+    total = sum(counts.values())
+
+    print("=== LABELVERDELING REFERENTIECODERING ===")
+    for category in CATEGORIES:
+        share = counts[category] / total if total > 0 else 0.0
+        print(f"{category:7} -> {counts[category]:3d} ({share:5.1%})")
+    print(f"{'TOTAAL':7} -> {total:3d}")
+    print()
 
 def print_confusion_matrix_summary(data):
     """Print de fragment-confusiematrix (zonder filtering per categorie) voor meerdere drempels."""
@@ -285,6 +300,7 @@ def main():
             return
             
         logging.info(f"Successfully loaded a total of {len(all_data)} segments from all participants.\n")
+        print_human_label_distribution(all_data)
         print_aggregated_summary(all_data)
         print_confusion_matrix_summary(all_data)
         
@@ -300,6 +316,7 @@ def main():
             return
             
         logging.info(f"Successfully loaded {len(data)} segments.\n")
+        print_human_label_distribution(data)
         print_aggregated_summary(data)
         print_confusion_matrix_summary(data)
 
