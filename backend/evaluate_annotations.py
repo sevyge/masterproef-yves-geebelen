@@ -225,15 +225,15 @@ def print_aggregated_summary(data):
             print(f"{category:7} -> Menselijk: {true_positives + false_negatives:2d}, LLM: {true_positives + false_positives:2d}, Matches (TP): {true_positives:2d} | Precision: {precision:5.1%}, Recall: {recall:5.1%}, F1-score: {f1_score:5.1%}")
         print()
 
-def print_human_label_distribution(data):
-    """Print de labelverdeling van de menselijke referentiecodering."""
+def print_label_distribution(data, annotation_key, title):
+    """Print de labelverdeling van de gegeven annotatiebron ('human_annotaties' of 'llm_annotaties')."""
     counts = {
-        category: sum(len(filter_annotations_by_label(row.get("human_annotaties", []), category)) for row in data)
+        category: sum(len(filter_annotations_by_label(row.get(annotation_key, []), category)) for row in data)
         for category in CATEGORIES
     }
     total = sum(counts.values())
 
-    print("=== LABELVERDELING REFERENTIECODERING ===")
+    print(f"=== LABELVERDELING {title} ===")
     for category in CATEGORIES:
         share = counts[category] / total if total > 0 else 0.0
         print(f"{category:7} -> {counts[category]:3d} ({share:5.1%})")
@@ -300,7 +300,8 @@ def main():
             return
             
         logging.info(f"Successfully loaded a total of {len(all_data)} segments from all participants.\n")
-        print_human_label_distribution(all_data)
+        print_label_distribution(all_data, "human_annotaties", "REFERENTIECODERING")
+        print_label_distribution(all_data, "llm_annotaties", "LLM-CODERING")
         print_aggregated_summary(all_data)
         print_confusion_matrix_summary(all_data)
         
@@ -316,7 +317,8 @@ def main():
             return
             
         logging.info(f"Successfully loaded {len(data)} segments.\n")
-        print_human_label_distribution(data)
+        print_label_distribution(data, "human_annotaties", "REFERENTIECODERING")
+        print_label_distribution(data, "llm_annotaties", "LLM-CODERING")
         print_aggregated_summary(data)
         print_confusion_matrix_summary(data)
 
