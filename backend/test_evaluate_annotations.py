@@ -67,5 +67,61 @@ class TestOverlapAndJaccard(unittest.TestCase):
         self.assertEqual(result["matched_pairs"][0]["llm_fragment_index"], 1)
         self.assertEqual(result["unmatched_llm_annotations"], [0])
 
+    def test_match_segment_annotations_without_label_preference(self):
+        """Controleer dat de confusiematrix-koppeling label-blind en deterministisch verloopt."""
+        from evaluate_annotations import match_segment_annotations
+
+        human_anns = [
+            {"start": 100, "end": 200, "quote": "ik open de Directly Follows graph", "label": "PK"}
+        ]
+        # Beide LLM-fragmenten halen dezelfde Jaccard-score; enkel het label verschilt.
+        llm_anns = [
+            {"start": 103, "end": 200, "quote": "open de Directly Follows graph", "label": "DOM"},
+            {"start": 100, "end": 195, "quote": "ik open de Directly Follows", "label": "PK"}
+        ]
+
+        result = match_segment_annotations(
+            human_anns, llm_anns, threshold=0.5, prefer_matching_label=False
+        )
+
+        # Zonder labelvoorkeur wint het eerste fragment op positie, niet het passende label.
+        self.assertEqual(len(result["matched_pairs"]), 1)
+        self.assertEqual(result["matched_pairs"][0]["llm_fragment_index"], 0)
+        self.assertEqual(result["unmatched_llm_annotations"], [1])
+
+    def test_create_confusion_matrix(self):
+        """Controleer dat labelverwarring, gemiste en overbodige fragmenten juist geteld worden."""
+        from evaluate_annotations import create_confusion_matrix
+
+        human_anns = [
+            {"label": "PK", "quote": "Ik filter op deze variant", "start": 0, "end": 25},
+            {"label": "CK", "quote": "want ik vermoed een vertraging", "start": 27, "end": 57},
+            {"label": "DOM", "quote": "Er zijn 150.370 cases", "start": 59, "end": 80},
+            {"label": "DK", "quote": "Een event log is een verzameling cases", "start": 82, "end": 120},
+        ]
+        llm_anns = [
+            # Zelfde fragment en zelfde label als de mens -> diagonaal (PK, PK)
+            {"label": "PK", "quote": "Ik filter op deze variant", "start": 0, "end": 25},
+            # Zelfde fragment, ander label -> labelverwarring (CK -> DK)
+            {"label": "DK", "quote": "want ik vermoed een vertraging", "start": 27, "end": 57},
+            # Zelfde fragment, ander label -> labelverwarring (DOM -> DK)
+            {"label": "DK", "quote": "Er zijn 150.370 cases", "start": 59, "end": 80},
+            # Overlapt met geen enkel menselijk fragment -> ENKEL LLM
+            {"label": "CK", "quote": "een verjaringstermijn van negentig dagen", "start": 130, "end": 170},
+        ]
+        data = [{"human_annotaties": human_anns, "llm_annotaties": llm_anns}]
+
+        result = create_confusion_matrix(data, threshold=0.5)
+        matrix = result["matrix"]
+
+        self.assertEqual(matrix["PK"]["PK"], 1)
+        self.assertEqual(matrix["CK"]["DK"], 1)
+        self.assertEqual(matrix["DOM"]["DK"], 1)
+        # Het menselijke DK-fragment werd door het LLM niet gevonden
+        self.assertEqual(matrix["DK"]["GEMIST"], 1)
+        self.assertEqual(matrix["DK"]["DK"], 0)
+        # Het losse LLM-fragment telt als overbodig onder zijn eigen label
+        self.assertEqual(result["unmatched_llm_counts"]["CK"], 1)
+
 if __name__ == "__main__":
     unittest.main()

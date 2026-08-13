@@ -3,6 +3,9 @@ import logging
 import string
 from services.storage_service import get_participant_transcript, get_participants_list
 
+# 0,50 is de hoofdmaat
+EVALUATION_THRESHOLDS = [0.25, 0.50, 0.75]
+CATEGORIES = ["DK", "PK", "CK", "DOM"]
 
 class CategoryMetrics:
     """Houdt de evaluatieresultaten (TP, FP, FN) bij voor een categorie."""
@@ -12,7 +15,6 @@ class CategoryMetrics:
         self.false_negatives = 0
 
 def clean_quote_words(quote):
-    """Zet de quote om naar een set van schone, kleine woorden zonder leestekens."""
     if not quote:
         return set()
     text = quote.lower()
@@ -72,20 +74,23 @@ def find_candidate_matches(human_anns, llm_anns, threshold=0.5):
                 })
     return candidates
 
-def match_segment_annotations(human_anns, llm_anns, threshold=0.5):
+def match_segment_annotations(human_anns, llm_anns, threshold=0.5, prefer_matching_label=True):
     """
     Koppelt menselijke annotaties en LLM-annotaties 1-op-1 op basis van de hoogste Jaccard-overlap.
-    Bij gelijke Jaccard-overlap krijgt een koppeling met een overeenstemmend label voorrang.
     Retourneert een dict met matched_pairs, unmatched_human_annotations en unmatched_llm_annotations.
+
+    Bij een gelijke Jaccard-score krijgt een paar met hetzelfde label voorrang wanneer prefer_matching_label=True.
     """
     candidates = find_candidate_matches(human_anns, llm_anns, threshold)
-    
+
     def get_sort_key(candidate):
+        if not prefer_matching_label:
+            return (candidate["score"],)
         human_ann = human_anns[candidate["human_fragment_index"]]
         llm_ann = llm_anns[candidate["llm_fragment_index"]]
         same_label = 1 if human_ann.get("label") == llm_ann.get("label") else 0
         return (candidate["score"], same_label)
-        
+
     candidates.sort(key=get_sort_key, reverse=True)
     
     matched_pairs = []
@@ -119,19 +124,17 @@ def match_segment_annotations(human_anns, llm_anns, threshold=0.5):
 
 def evaluate_participant_fragments(data, threshold=0.5):
     """Evalueert de fragment-matching per categorie en berekent de totalen."""
-    # 1. Accumuleer counts intern met CategoryMetrics
+    # Accumuleer counts intern met CategoryMetrics
     metrics = {
-        "DOM": CategoryMetrics(),
         "DK": CategoryMetrics(),
         "PK": CategoryMetrics(),
         "CK": CategoryMetrics(),
+        "DOM": CategoryMetrics(),
         "TOTAAL": CategoryMetrics()
     }
-    
-    categories = ["DOM", "DK", "PK", "CK"]
-    
+
     for row in data:
-        for category in categories:
+        for category in CATEGORIES:
             human_anns = filter_annotations_by_label(row.get("human_annotaties", []), category)
             llm_anns = filter_annotations_by_label(row.get("llm_annotaties", []), category)
             
@@ -149,7 +152,7 @@ def evaluate_participant_fragments(data, threshold=0.5):
             metrics["TOTAAL"].false_positives += false_positives_count
             metrics["TOTAAL"].false_negatives += false_negatives_count
             
-    # 2. Bereken statistieken en formatteer naar JSON
+    # Bereken statistieken en formatteer naar JSON
     results = {}
     for category, m in metrics.items():
         true_positives = m.true_positives
@@ -171,20 +174,79 @@ def evaluate_participant_fragments(data, threshold=0.5):
         
     return results
 
+def create_confusion_matrix(data, threshold=0.5):
+    """
+    Bouwt een confusiematrix op fragmentniveau, gematcht zonder filtering per categorie (prefer_matching_label=False).
+    """
+    matrix = {
+        human_label: {llm_label: 0 for llm_label in CATEGORIES + ["GEMIST"]}
+        for human_label in CATEGORIES
+    }
+    unmatched_llm_counts = {llm_label: 0 for llm_label in CATEGORIES}
+
+    for row in data:
+        human_annotations = row.get("human_annotaties", [])
+        llm_annotations = row.get("llm_annotaties", [])
+        match_result = match_segment_annotations(
+            human_annotations, llm_annotations, threshold, prefer_matching_label=False
+        )
+
+        # gekoppeld: diagonaal bij overeenstemming, ernaast bij labelverwarring
+        for pair in match_result["matched_pairs"]:
+            human_label = human_annotations[pair["human_fragment_index"]].get("label")
+            llm_label = llm_annotations[pair["llm_fragment_index"]].get("label")
+            matrix[human_label][llm_label] += 1
+
+        # menselijk fragment zonder LLM-tegenhanger -> kolom GEMIST
+        for human_fragment_index in match_result["unmatched_human_annotations"]:
+            human_label = human_annotations[human_fragment_index].get("label")
+            matrix[human_label]["GEMIST"] += 1
+
+        # LLM-fragment zonder menselijke tegenhanger -> aparte telling, niet in de matrix
+        for llm_fragment_index in match_result["unmatched_llm_annotations"]:
+            llm_label = llm_annotations[llm_fragment_index].get("label")
+            unmatched_llm_counts[llm_label] += 1
+
+    return {"matrix": matrix, "unmatched_llm_counts": unmatched_llm_counts}
+
 def print_aggregated_summary(data):
-    """Bereken en print geaggregeerde statistieken op fragmentniveau."""
-    print("=== SAMENVATTING OP FRAGMENTNIVEAU ===")
-    results = evaluate_participant_fragments(data, threshold=0.5)
-    for category, res in results.items():
-        true_positives = res["true_positives"]
-        false_positives = res["false_positives"]
-        false_negatives = res["false_negatives"]
-        precision = res["precision"]
-        recall = res["recall"]
-        f1_score = res["f1_score"]
-        
-        print(f"{category} -> Menselijke annotaties: {true_positives + false_negatives}, LLM annotaties: {true_positives + false_positives}, Overeenkomsten (Matches): {true_positives} | Precision: {precision:.1%}, Recall: {recall:.1%}, F1-score: {f1_score:.1%}")
-    print()
+    """Bereken en print geaggregeerde statistieken op fragmentniveau voor meerdere drempels."""
+    for threshold in EVALUATION_THRESHOLDS:
+        print(f"=== SAMENVATTING OP FRAGMENTNIVEAU (Jaccard >= {threshold:.2f}) ===")
+        results = evaluate_participant_fragments(data, threshold=threshold)
+        for category, res in results.items():
+            true_positives = res["true_positives"]
+            false_positives = res["false_positives"]
+            false_negatives = res["false_negatives"]
+            precision = res["precision"]
+            recall = res["recall"]
+            f1_score = res["f1_score"]
+            
+            print(f"{category:7} -> Menselijk: {true_positives + false_negatives:2d}, LLM: {true_positives + false_positives:2d}, Matches (TP): {true_positives:2d} | Precision: {precision:5.1%}, Recall: {recall:5.1%}, F1-score: {f1_score:5.1%}")
+        print()
+
+def print_confusion_matrix_summary(data):
+    """Print de fragment-confusiematrix (zonder filtering per categorie) voor meerdere drempels."""
+    for threshold in EVALUATION_THRESHOLDS:
+        print(f"=== FRAGMENT-CONFUSIEMATRIX, zonder filtering per categorie (Jaccard >= {threshold:.2f}) ===")
+        print("Rijen: menselijke annotatie | Kolommen: LLM-annotatie")
+        result = create_confusion_matrix(data, threshold=threshold)
+        matrix = result["matrix"]
+        unmatched_llm_counts = result["unmatched_llm_counts"]
+
+        column_labels = CATEGORIES + ["GEMIST"]
+        print(f"{'':>10}" + "".join(f"{label:>10}" for label in column_labels))
+        for human_label in CATEGORIES:
+            print(f"{human_label:>10}" + "".join(f"{matrix[human_label][llm_label]:>10}" for llm_label in column_labels))
+        print(f"{'ENKEL LLM':>10}" + "".join(f"{unmatched_llm_counts[llm_label]:>10}" for llm_label in CATEGORIES) + f"{'-':>10}")
+
+        matched_total = sum(matrix[h][l] for h in CATEGORIES for l in CATEGORIES)
+        matched_same_label = sum(matrix[c][c] for c in CATEGORIES)
+        missed_total = sum(matrix[h]["GEMIST"] for h in CATEGORIES)
+        unmatched_total = sum(unmatched_llm_counts.values())
+        label_agreement = matched_same_label / matched_total if matched_total > 0 else 0.0
+        print(f"Gedeelde fragmenten: {matched_total} (zelfde label: {matched_same_label}, {label_agreement:.1%}) | Grensverschillen -> gemist: {missed_total}, enkel LLM: {unmatched_total}")
+        print()
 
 def main():
     logging.info("--- Running evaluate_annotations.py ---")
@@ -224,6 +286,7 @@ def main():
             
         logging.info(f"Successfully loaded a total of {len(all_data)} segments from all participants.\n")
         print_aggregated_summary(all_data)
+        print_confusion_matrix_summary(all_data)
         
         if incomplete_participants:
             list_str = ", ".join(sorted(incomplete_participants))
@@ -238,9 +301,9 @@ def main():
             
         logging.info(f"Successfully loaded {len(data)} segments.\n")
         print_aggregated_summary(data)
+        print_confusion_matrix_summary(data)
 
 if __name__ == "__main__":
-    os.environ["LOCAL_STORAGE_MODE"] = "true"
     logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
     main()
 
