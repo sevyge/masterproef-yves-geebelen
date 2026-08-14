@@ -250,16 +250,22 @@ def print_confusion_matrix_summary(data):
         unmatched_llm_counts = result["unmatched_llm_counts"]
 
         column_labels = CATEGORIES + ["GEMIST"]
-        print(f"{'':>10}" + "".join(f"{label:>10}" for label in column_labels))
+        unmatched_total = sum(unmatched_llm_counts.values())
+
+        print(f"{'':>10}" + "".join(f"{label:>10}" for label in column_labels) + f"{'Totaal':>10}")
         for human_label in CATEGORIES:
-            print(f"{human_label:>10}" + "".join(f"{matrix[human_label][llm_label]:>10}" for llm_label in column_labels))
-        print(f"{'ENKEL LLM':>10}" + "".join(f"{unmatched_llm_counts[llm_label]:>10}" for llm_label in CATEGORIES) + f"{'-':>10}")
+            row_total = sum(matrix[human_label][llm_label] for llm_label in column_labels)
+            print(f"{human_label:>10}" + "".join(f"{matrix[human_label][llm_label]:>10}" for llm_label in column_labels) + f"{row_total:>10}")
+        print(f"{'ENKEL LLM':>10}" + "".join(f"{unmatched_llm_counts[llm_label]:>10}" for llm_label in CATEGORIES) + f"{'-':>10}{unmatched_total:>10}")
 
         matched_total = sum(matrix[h][l] for h in CATEGORIES for l in CATEGORIES)
         matched_same_label = sum(matrix[c][c] for c in CATEGORIES)
         missed_total = sum(matrix[h]["GEMIST"] for h in CATEGORIES)
-        unmatched_total = sum(unmatched_llm_counts.values())
         label_agreement = matched_same_label / matched_total if matched_total > 0 else 0.0
+
+        column_totals = [sum(matrix[h][llm_label] for h in CATEGORIES) + unmatched_llm_counts[llm_label] for llm_label in CATEGORIES]
+        print(f"{'Totaal':>10}" + "".join(f"{total:>10}" for total in column_totals) + f"{missed_total:>10}{'-':>10}")
+
         print(f"Gedeelde fragmenten: {matched_total} (zelfde label: {matched_same_label}, {label_agreement:.1%}) | Grensverschillen -> gemist: {missed_total}, enkel LLM: {unmatched_total}")
         print()
 
