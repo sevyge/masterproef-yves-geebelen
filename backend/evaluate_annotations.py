@@ -14,14 +14,18 @@ class CategoryMetrics:
         self.false_positives = 0
         self.false_negatives = 0
 
-def clean_quote_words(quote):
+def normalize_quote_words(quote):
+    """Zet een quote om naar een lijst van woorden (kleine letters, zonder leestekens)."""
     if not quote:
-        return set()
+        return []
     text = quote.lower()
     for leesteken in string.punctuation:
         text = text.replace(leesteken, "")
-    words = text.split()
-    return set(words)
+    return text.split()
+
+
+def clean_quote_words(quote):
+    return set(normalize_quote_words(quote))
 
 
 def calculate_jaccard(fragment_a, fragment_b):
@@ -240,6 +244,23 @@ def print_label_distribution(data, annotation_key, title):
     print(f"{'TOTAAL':7} -> {total:3d}")
     print()
 
+def print_fragment_length_distribution(data, maximum_short_words=2):
+    """Print per categorie hoeveel fragmenten hoogstens maximum_short_words woorden tellen, voor beide coderingen."""
+    print(f"=== AANDEEL FRAGMENTEN VAN HOOGSTENS {maximum_short_words} WOORDEN ===")
+    for category in CATEGORIES:
+        line = f"{category:7} ->"
+        for annotation_key, title in [("human_annotaties", "referentie"), ("llm_annotaties", "LLM")]:
+            lengths = [
+                len(normalize_quote_words(annotation.get("quote", "")))
+                for row in data
+                for annotation in filter_annotations_by_label(row.get(annotation_key, []), category)
+            ]
+            short_count = sum(1 for length in lengths if length <= maximum_short_words)
+            share = short_count / len(lengths) if lengths else 0.0
+            line += f"  {title}: {short_count:3d}/{len(lengths):3d} ({share:5.1%})"
+        print(line)
+    print()
+
 def print_confusion_matrix_summary(data):
     """Print de fragment-confusiematrix (zonder filtering per categorie) voor meerdere drempels."""
     for threshold in EVALUATION_THRESHOLDS:
@@ -308,6 +329,7 @@ def main():
         logging.info(f"Successfully loaded a total of {len(all_data)} segments from all participants.\n")
         print_label_distribution(all_data, "human_annotaties", "REFERENTIECODERING")
         print_label_distribution(all_data, "llm_annotaties", "LLM-CODERING")
+        print_fragment_length_distribution(all_data)
         print_aggregated_summary(all_data)
         print_confusion_matrix_summary(all_data)
         
@@ -325,6 +347,7 @@ def main():
         logging.info(f"Successfully loaded {len(data)} segments.\n")
         print_label_distribution(data, "human_annotaties", "REFERENTIECODERING")
         print_label_distribution(data, "llm_annotaties", "LLM-CODERING")
+        print_fragment_length_distribution(data)
         print_aggregated_summary(data)
         print_confusion_matrix_summary(data)
 
