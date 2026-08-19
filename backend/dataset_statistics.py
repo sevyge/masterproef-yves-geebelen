@@ -9,7 +9,7 @@ from datetime import datetime
 from services.storage_service import get_results_dir
 
 TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
-EXCLUDED_FOLDERS = {"Testing_example"}
+EXCLUDED_FOLDERS = {"Testing_example", "Backup_Referentiecodering"}
 
 # Effectief gebruikte tool tijdens de sessie (afgelezen uit schermopname)
 TOOL_USED = {"1": "Disco", "2": "Disco", "3": "Disco", "4": "bupaR",
