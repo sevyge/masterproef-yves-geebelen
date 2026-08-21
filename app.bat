@@ -35,12 +35,14 @@ echo (Or press Enter to skip and leave them blank)
 echo.
 set /p api_key="Enter AZURE_OPENAI_API_KEY: "
 set /p endpoint="Enter AZURE_OPENAI_ENDPOINT: "
+set /p groq_key="Enter GROQ_API_KEY: "
 echo.
 
 copy .env.example .env >nul 2>&1
 
 powershell -Command "(gc .env) -replace 'AZURE_OPENAI_API_KEY=', ('AZURE_OPENAI_API_KEY=' + [char]34 + '%api_key%' + [char]34) | sc .env"
 powershell -Command "(gc .env) -replace 'AZURE_OPENAI_ENDPOINT=', ('AZURE_OPENAI_ENDPOINT=' + [char]34 + '%endpoint%' + [char]34) | sc .env"
+powershell -Command "(gc .env) -replace 'GROQ_API_KEY=', ('GROQ_API_KEY=' + [char]34 + '%groq_key%' + [char]34) | sc .env"
 
 echo .env file configured successfully.
 echo.

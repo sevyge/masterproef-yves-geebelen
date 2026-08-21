@@ -26,17 +26,20 @@ start_app() {
         echo ""
         read -p "Enter AZURE_OPENAI_API_KEY: " api_key
         read -p "Enter AZURE_OPENAI_ENDPOINT: " endpoint
+        read -p "Enter GROQ_API_KEY: " groq_key
         echo ""
-        
+
         cp .env.example .env 2>/dev/null
-        
+
         # Replace the placeholders in .env
         if [[ "$OSTYPE" == "darwin"* ]]; then
             sed -i '' "s|AZURE_OPENAI_API_KEY=|AZURE_OPENAI_API_KEY=\"$api_key\"|g" .env
             sed -i '' "s|AZURE_OPENAI_ENDPOINT=|AZURE_OPENAI_ENDPOINT=\"$endpoint\"|g" .env
+            sed -i '' "s|GROQ_API_KEY=|GROQ_API_KEY=\"$groq_key\"|g" .env
         else
             sed -i "s|AZURE_OPENAI_API_KEY=|AZURE_OPENAI_API_KEY=\"$api_key\"|g" .env
             sed -i "s|AZURE_OPENAI_ENDPOINT=|AZURE_OPENAI_ENDPOINT=\"$endpoint\"|g" .env
+            sed -i "s|GROQ_API_KEY=|GROQ_API_KEY=\"$groq_key\"|g" .env
         fi
         
         echo ".env file configured successfully."
